@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.app.dao.MobileAppDao">
+
+	<select id="checkAppUpdate" resultType="java.util.Map">
+		SELECT
+			a.SUBJECT_,
+			a.CONTENT_,
+			a.TYPE_,
+			a.PLATFORM_,
+			a.CATEGORY_,
+			a.VERSION_,
+			a.VERSION_NUM_,
+			a.FORCE_UPDATE_,
+			a.EFFECTIVE_TIME_,
+			a.PACKAGE_,
+			a.FILE_,
+			a.URL_
+		FROM
+			sys_app_version a,
+			(
+			SELECT
+				b.TYPE_,
+				MAX( b.VERSION_NUM_ ) MAX_VERSION_
+			FROM
+				sys_app_version b
+			WHERE
+				b.PACKAGE_ = #{packageName}
+				AND b.PLATFORM_ = #{platform}
+			GROUP BY
+				TYPE_
+			) c
+		WHERE
+			a.PACKAGE_ = #{packageName}
+			AND a.PLATFORM_ = #{platform}
+			AND c.TYPE_ = a.TYPE_
+			AND c.MAX_VERSION_ = a.VERSION_NUM_
+	</select>
+
+	<select id="getAppDownloadUrl" resultType="java.lang.String">
+		SELECT
+		<choose>
+			<when test="appType == 'ios'">
+				URL_
+			</when >
+			<otherwise>
+				FILE_
+			</otherwise>
+		</choose>
+		 FROM sys_app_version WHERE TYPE_='基础包' and PLATFORM_ = #{appType} and SHOW_='1' limit 1
+	</select>
+
+</mapper>

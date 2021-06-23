@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.utilsDao.UtilsDao">
+
+    <!--批量删除设备
+        参数：
+        1、tableName：表名
+        2、ids：将要删除的数组
+    -->
+    <delete id="batchDelete">
+        DELETE FROM ${ tableName } WHERE ID_ IN
+        <foreach collection="ids" item="arr" index="index" open="("
+                 separator="," close=")">
+            #{arr}
+        </foreach>
+    </delete>
+
+
+
+    <!--目录排序通用：
+        查询sort最大值，新增数据时用
+        根目录为root
+        参数：
+        1、tableName：表名
+        2、projUid：项目ID
+        2、parentId：父级ID
+    -->
+    <select id="getParentSort" resultType="java.lang.Double">
+        SELECT TOP 1
+        T_N.SORT_
+        FROM
+        ${ tableName } T_N
+        WHERE  T_N.PROJ_UID_=#{ projUid }
+        <if test="parentId != 'root'">
+            AND T_N.PARENT_UID_ = #{ parentId }
+        </if>
+        <if test="parentId == 'root'">
+            AND T_N.PARENT_UID_ = 'root'
+        </if>
+        ORDER BY T_N.SORT_ DESC
+    </select>
+
+
+
+    <!--单个表排序通用：
+        查询sort最大值，新增数据时用
+         参数：
+        1、tableName：表名
+        2、projUid：项目ID
+        -->
+    <select id="getSort" resultType="java.lang.Double">
+        SELECT MAX(T_N.SORT_)
+            FROM
+            ${ tableName } T_N
+        WHERE
+          T_N.PROJ_UID_ = #{ projUid }
+    </select>
+
+
+
+</mapper>

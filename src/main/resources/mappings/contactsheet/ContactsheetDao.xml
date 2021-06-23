@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.contactsheet.dao.ContactsheetDao">
+
+	
+	<!-- 根据项目id查询工程联系单 -->
+	<select id="searchContactsheetList" resultMap="personnelList">
+		<if test="dbType == 'mysql'">
+			SELECT * FROM (select 
+			ID_ id, TITLE_ title, DISPATCH_UNIT_ dispatchUnit, 
+			INCOMING_DISPATCHES_UNIT_ incomingDispatchesUnit, COPY_TO_ copyTo, FILE_CODE_ fileCode, 
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREATE_TIME_, 
+			CONTRACT_CODE_ contractCode, CONTRACT_NAME_ contractName, DATE_FORMAT(a.APPLY_DATE_, '%Y-%m-%d') applyDate, 
+			APPLY_DEPART_ applyDepart, APPLY_PERSON_ applyPerson,
+			(SELECT DEPART_NAME_ FROM ORG_DEPART WHERE ID_=a.CONTACT_DEPART_) contactDepart,
+			(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=a.CONTACT_PERSON_) contactPerson,
+			REASONS_ reasons, CONTENT_ content, STATUS_ status,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			((select count(ID_) from t_contactsheet_user where PARENT_UID_ = a.ID_ and TYPE_ = 1 and USER_UID_ = #{userUid}) > 0) flag,
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture, 
+			(	select count(id_) from T_CONTACTSHEET a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+				<if test="search != null and search != ''">
+				and a.TITLE_ like concat('%', #{search}, '%')	
+				</if>
+			)totalCount 
+			from T_CONTACTSHEET a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+
+			<if test="search != null and search != ''">
+				and a.TITLE_ like concat('%', #{search}, '%')	
+			</if>
+			<if test="dataType != null and dataType == 'my'">
+				and a.CREATE_USER_ = #{userUid}
+			</if>
+			<if test="dataType != null and dataType == 'myHandel'">
+				and (a.id_ in (select PARENT_UID_ from t_contactsheet_user where USER_UID_ = #{userUid}) )
+			</if>
+
+			) data order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ desc) as Rownumver, 
+			ID_ id, TITLE_ title, DISPATCH_UNIT_ dispatchUnit, COUNT(1) OVER() AS totalCount,
+			INCOMING_DISPATCHES_UNIT_ incomingDispatchesUnit, COPY_TO_ copyTo, FILE_CODE_ fileCode, 
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_TIME_, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture  
+			from T_CONTACTSHEET a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			and (a.id_ in (select PARENT_UID_ from t_contactsheet_user where USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid})
+			<if test="search != null and search != ''">
+				and a.TITLE_ like '%'+ #{search} +'%'		
+			</if>
+			) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc
+		</if>
+		
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="personnelList">
+		<id property="id" column="id" />
+		<collection property="personnelList" column="{parentId = id}"  javaType="java.util.List"  select="searchPersonnelList" />
+		<collection property="attachment" column="{parentId = id}"  javaType="java.util.List"  select="searchAttachment" />
+	</resultMap>
+	
+	
+	<!-- 查询通知人与抄送人 -->
+	<select id="searchPersonnelList" resultType="java.util.HashMap" >
+		select USER_NAME_ userName, USER_UID_ id, PARENT_UID_ parentUid, TYPE_ type, 
+		(select PICTURE_ from ORG_USER where ID_=a.USER_UID_) picture   
+		from T_CONTACTSHEET_USER a where PARENT_UID_ = #{parentId}
+	</select>
+	
+	
+	<select id="searchAttachment" resultType="java.util.HashMap" >
+		select id_ id, FILE_NAME_ fileName, SUFFIX_ suffix, XTYPE_ xtype, SIZE_ size, LENGTH_ length, 
+		(select USER_NAME_ from ORG_USER where ID_= CREATE_USER_) createUserName 
+		from T_ATTACHMENT where parent_id_ = #{parentId} order by CREATE_TIME_ desc
+	</select>
+	
+	
+	<!-- 根据id查询联系单信息 -->
+	<select id="searchContactsheetById" resultMap="personnelList">
+		select ID_ id, TITLE_ title, DISPATCH_UNIT_ dispatchUnit, 
+		INCOMING_DISPATCHES_UNIT_ incomingDispatchesUnit, COPY_TO_ copyTo, FILE_CODE_ fileCode,
+		CONTRACT_CODE_ contractCode, CONTRACT_NAME_ contractName,  STATUS_ status, 
+		APPLY_DEPART_ applyDepart, APPLY_PERSON_ applyPerson, CONTACT_DEPART_ contactDepart, CONTACT_PERSON_ contactPersonId,
+		REASONS_ reasons, CONTENT_ content,SPYJ_,
+		(SELECT DEPART_NAME_ FROM ORG_DEPART WHERE ID_=a.CONTACT_DEPART_) contactDepartName,
+		(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=a.CONTACT_PERSON_) contactPerson,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.APPLY_DATE_, '%Y-%m-%d') applyDate,
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		</if>
+		CREATE_TIME_, CREATE_USER_ createUser, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName 
+		from T_CONTACTSHEET a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 删除通知人与抄送人 -->
+	<delete id="deletePersonnel">
+		delete from T_CONTACTSHEET_USER where PARENT_UID_ = #{id}
+	</delete>
+	
+	
+	<!-- 删除联系单 -->
+	<delete id="deleteContactsheet">
+		delete from T_CONTACTSHEET where id_ = #{id}
+	</delete>
+	
+	
+	<!-- 更新联系单审批状态 -->
+	<update id="updateContactsheetStatusById">
+		UPDATE T_CONTACTSHEET SET STATUS_ = #{status} WHERE id_= #{id}
+	</update>
+</mapper> 

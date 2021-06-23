@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jrsoft.app.dao.SqlQueryDaoI">
+	
+	<insert id="insertData" parameterType="java.util.Map">
+		${insertSql} 
+	</insert>
+	
+	<insert id="insertMapSqlData" parameterType="java.util.Map">
+		${insertSql} 
+	</insert>
+	
+	<delete id="deleteData">
+		${deleteSql}
+	</delete>
+	
+	<update id="updateData" >
+		${updateSql}
+	</update>
+	
+	<select id="countSql" parameterType="java.util.Map" resultType="int">  
+        ${countSql} 
+    </select>  
+    
+    <select id="getListBySqlAndMap" parameterType="java.util.Map" resultType="java.util.Map">  
+        ${mySql} 
+    </select> 
+    <select id="getListBySql" resultType="java.util.Map">  
+        ${querySql} 
+    </select>
+	<select id="getListObjBySql" resultType="java.util.Map">  
+        ${querySql} 
+    </select>
+    
+	<select id="getUnique" resultType="java.util.Map">  
+        ${querySql} 
+    </select> 
+</mapper>

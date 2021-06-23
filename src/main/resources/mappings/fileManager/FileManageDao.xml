@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.fileManage.dao.FileManageDao">
+
+	
+	<select id="searchBypRrojectId" resultType="java.util.HashMap">
+		select a.ID_, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_, a.PARENT_UID_, a.COMPANY_,a.LB_, a.PARENT_UID_, a.PROJ_UID_
+		from T_DOC_DOCUMENT_ a where 
+		<choose>
+        	<when test="isCompanyAdmin">
+        	</when>
+	        <otherwise>
+	        	(a.Id_ in (select parent_uid_ from T_DOC_MENBER where user_uid_ = #{userUid} and MEMBER_TYPE_ = 0) or create_user_ = #{userUid} or (select count(id_) from T_DOC_MENBER where MEMBER_TYPE_ = 0 and parent_uid_ = a.id_) = 0 ) and
+	        </otherwise> 
+   		</choose>
+   		
+		a.PARENT_UID_ = #{parentUid} and PROJ_UID_ = #{projUid} AND a.COMPANY_ = #{companyUid}
+		
+		<if test="search != null and search != ''">
+			<if test="dbType == 'mysql'">
+				and NAME_ like concat('%', #{search}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and NAME_ like '%'+ #{search}+ '%'
+			</if>
+			
+		</if>
+		
+		ORDER BY CREATE_TIME_
+	</select>
+	
+	
+	<select id="searchFileBypRrojectId" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, FILE_CODE_, (select id_ from T_ATTACHMENT where parent_id_ = a.id_ LIMIT 1) fileId,
+		(select SUFFIX_ from T_ATTACHMENT where parent_id_ = a.id_ LIMIT 1) suffix
+		from T_FILE a where 
+		<choose>
+        	<when test="isCompanyAdmin">
+        	</when>
+	        <otherwise>
+	        	(a.Id_ in (select parent_uid_ from T_DOC_MENBER where user_uid_ = #{userUid} and MEMBER_TYPE_ = 0) or create_user_ = #{userUid} or (select count(id_) from T_DOC_MENBER where MEMBER_TYPE_ = 0 and parent_uid_ = a.id_) = 0) and
+	        </otherwise> 
+   		</choose>
+   		
+		a.PARENT_UID_ = #{parentUid} and PROJ_UID_ = #{projUid} AND a.COMPANY_ = #{companyUid}
+		
+		<if test="search != null and search != ''">
+			<if test="dbType == 'mysql'">
+				and file_name_ like concat('%', #{search}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and file_name_ like '%' +#{search}+ '%'
+			</if>
+			
+		</if>
+		
+		ORDER BY CREATE_TIME_
+	</select>
+	
+	
+	<update id="moveFolder">
+		UPDATE T_DOC_DOCUMENT_  SET PARENT_UID_ = #{moveId} WHERE id_ = #{checkedId} 
+	</update>
+	
+	
+	<select id="subordinateFiles" resultType="java.util.HashMap">
+		select a.ID_, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_, a.PARENT_UID_, a.COMPANY_,a.LB_
+		from T_DOC_DOCUMENT_ a where a.PARENT_UID_ = #{id_}  
+		<choose>
+        	<when test="isCompanyAdmin">
+        	</when>
+	        <otherwise>
+	        	and (a.Id_ in (select parent_uid_ from T_DOC_MENBER where user_uid_ = #{userUid} and MEMBER_TYPE_ = 0) or create_user_ = #{userUid} or (select count(id_) from T_DOC_MENBER where MEMBER_TYPE_ = 0 and parent_uid_ = a.id_) = 0) 
+	        </otherwise> 
+   		</choose>
+		ORDER BY CREATE_TIME_
+	</select>
+	
+	
+	<delete id="deleteTop">
+		DELETE FROM T_DOC_DOCUMENT_ WHERE id_ = #{arrId}
+	</delete>
+	
+	
+	<select id="updateFileName" resultMap="fileListMap">
+		select ID_, NAME_,CODE_,parent_uid_ from T_DOC_DOCUMENT_ where id_ = #{id}
+	</select>
+	
+	
+	<!-- 编辑文件夹 -->
+	<select id="updateFolder" resultMap="fileListMap">
+		select ID_, CODE_, REMARK_, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) CREATE_USER_,
+		'0' AS MEMBER_VAL_,'1' ROLE_VAL_,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') CREATE_TIME_, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) CREATE_TIME_, 
+		</if>
+		NAME_, PARENT_UID_, SORT_, LOCK_, SUBJECT_, 
+		PROJ_UID_, XMMC_, XMBH_, POSITION_ID_, DEPART_ID_, RECEIVER_UID_, LB_ 
+		from T_DOC_DOCUMENT_ a where id_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="fileListMap">
+		<id property="id" column="ID_" />
+		<result property="PROJ_UID_" column="PROJ_UID_" />
+		<collection property="member" column="{parentId = ID_,memberType=MEMBER_VAL_}"  javaType="java.util.List"  select="selectMenberById" />
+		<collection property="roleMember" column="{parentId = ID_,memberType=ROLE_VAL_}"  javaType="java.util.List"  select="selectMenberById" />
+		 <collection property="fileIdList" column="{parentId=ID_}"  javaType="java.util.List"  select="searchFileLists" />
+	</resultMap>
+	
+	
+	<select id="selectMenberById" resultType="java.util.HashMap">
+		select (select picture_ from org_user where id_ = a.user_uid_) picture, 
+		USER_NAME_ userName,USER_UID_ id from T_DOC_MENBER a where PARENT_UID_=#{parentId} AND MEMBER_TYPE_=#{memberType}
+	</select>
+	
+	<select id="selectAccessoryById" resultType="java.util.HashMap" >
+		select file_name_ fileName, FILE_CODE_, (select id_ from T_ATTACHMENT where parent_id_ = a.id_) id
+		fileCode from T_FILE a where parent_uid_ = #{parentId} and proj_uid_ = #{porjUid}
+	</select>
+
+	
+	<select id="checkFileName" resultType="Integer">
+		SELECT count(ID_) FROM 
+		<choose>
+        	<when test="projUid != null and projUid != ''">
+        		T_DOC_DOCUMENT_ 
+        	</when>
+	        <otherwise>
+	        	T_DOC_CATALOG_
+	        </otherwise> 
+   		</choose>
+		WHERE parent_uid_ = #{parentUid} 
+		<if test="projUid != null and projUid != ''">
+			and proj_uid_ = #{projUid}
+		</if>
+		AND COMPANY_ = #{companyUid} AND NAME_ = #{fileName}
+	</select>
+
+	
+	<select id="checkMoveNoOneself" resultType="java.util.HashMap">
+		select a.ID_, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_, a.PARENT_UID_, a.COMPANY_,a.LB_ 
+		from T_DOC_DOCUMENT_ a where parent_uid_ = #{parentUid} and id_ <![CDATA[  <>  ]]> #{id}
+	</select>	
+	
+	
+	<!-- 编辑文件 -->
+	<select id="updateFile" resultMap="fileListMap">
+		select ID_, file_name_ fileName, FILE_CODE_ fileCode,'0' AS MEMBER_VAL_,'1' ROLE_VAL_
+		from T_FILE a where id_ = #{id} 
+	</select>
+	
+	<update id="moveFile">
+		UPDATE T_FILE SET PARENT_UID_ = #{moveId} WHERE id_ in
+		<foreach collection="ids" index="index" item="id" open="(" separator="," close=")">
+			#{id}
+		</foreach>
+	</update>
+	
+	<delete id="removeFile">
+		DELETE FROM T_FILE WHERE id_ IN
+		<foreach collection="ids" index="index" item="id" open="(" separator="," close=")">
+                #{id}       
+        </foreach> 
+	</delete>
+	
+	
+	<select id="searchFolderList" resultType="java.util.HashMap">
+		select a.ID_ id, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_ label, a.PARENT_UID_, a.COMPANY_,a.LB_,a.CODE_ code
+		from T_DOC_DOCUMENT_ a where parent_uid_ = #{parentUid} AND a.COMPANY_ = #{companyUid}
+		<if test="projUid != null">
+			and proj_uid_ = #{projUid}
+		</if>
+		<choose>
+        	<when test="isCompanyAdmin">
+        	</when>
+	        <otherwise>
+	        	and (a.Id_ in (select parent_uid_ from T_DOC_MENBER where user_uid_ = #{userUid} and MEMBER_TYPE_ = 0)
+				or create_user_ = #{userUid}
+				or a.Id_ in (select parent_uid_ from T_DOC_MENBER where MEMBER_TYPE_ = 1 AND user_uid_ IN
+				<foreach collection="roleList" index="index" item="item" open="(" separator="," close=")">
+					#{item.id}
+				</foreach> )
+				or (select count(id_) from T_DOC_MENBER where MEMBER_TYPE_ = 0 and parent_uid_ = a.id_) = 0)
+	        </otherwise> 
+   		</choose>
+		ORDER BY a.sort_
+	</select>
+	
+	<select id="searchBelow" resultType="java.util.HashMap">
+		select a.ID_ id, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_ label, a.PARENT_UID_, a.COMPANY_,a.LB_,a.CODE_ code
+		from T_DOC_DOCUMENT_ a where a.parent_uid_ = #{id} AND a.COMPANY_ = #{companyUid}
+		
+		<choose>
+        	<when test="isCompanyAdmin">
+        	</when>
+	        <otherwise>
+	        	and (a.Id_ in (select parent_uid_ from T_DOC_MENBER where user_uid_ = #{userUid} and MEMBER_TYPE_ = 0)
+				or create_user_ = #{userUid}
+				or a.Id_ in (select parent_uid_ from T_DOC_MENBER where MEMBER_TYPE_ = 1 AND user_uid_ IN
+				<foreach collection="roleList" index="index" item="item" open="(" separator="," close=")">
+					#{item.id}
+				</foreach>)
+				or (select count(id_) from T_DOC_MENBER where MEMBER_TYPE_ = 0 and parent_uid_ = a.id_) = 0)
+			</otherwise>
+   		</choose>
+		
+		ORDER BY a.sort_ 
+	</select>
+	
+	
+
+
+	<sql id="queryFileSql">
+		AND D.parent_uid_ = #{id}
+		<if test="projUid != null and projUid != '' ">
+			and D.proj_uid_ = #{projUid}
+		</if>
+		<choose>
+			<when test="isCompanyAdmin"></when>
+			<otherwise>
+				and (D.Id_ in (select parent_uid_ from T_DOC_MENBER where user_uid_ = #{userUid} and MEMBER_TYPE_ = 0)
+				or D.create_user_ = #{userUid}
+				or D.Id_ in (select parent_uid_ from T_DOC_MENBER where MEMBER_TYPE_ = 1 AND user_uid_ IN
+				<foreach collection="roleList" index="index" item="item" open="(" separator="," close=")">
+					#{item.id}
+				</foreach>)
+				or (select count(id_) from T_DOC_MENBER where parent_uid_ = D.id_) = 0)
+			</otherwise>
+		</choose>
+		<if test="search != null and search != ''">
+			and D.file_name_ like concat('%',#{search},'%')
+		</if>
+	</sql>
+	<select id="searchAccessoryTotalCount" resultType="int">
+		select count(ID_) from (
+			SELECT ID_ FROM T_FILE D where (D.IF_MERGE_='1' or D.IF_MERGE_ is null) <include refid="queryFileSql"/>
+			union all
+			SELECT ID_ FROM T_ATTACHMENT where parent_id_ IN (SELECT ID_ FROM T_FILE D WHERE IF_MERGE_='0' <include refid="queryFileSql"/>)
+		) DATA
+	</select>
+	<select id="searchAccessoryByFolderIdMySql" resultType="java.util.HashMap">
+		select D.ID_ id, D.file_name_ fileName, D.FILE_CODE_ fileCode,DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d %H:%i') createDate,U.USER_NAME_ createUserName,
+		null fileUid,'zip' SUFFIX_
+		from T_FILE D LEFT JOIN ORG_USER U ON D.CREATE_USER_=U.ID_ where (D.IF_MERGE_='1' or D.IF_MERGE_ is null)
+		<include refid="queryFileSql"/>
+		union all
+		select T.ID_ id,T.FILE_NAME_ fileName,'attachment' fileCode,DATE_FORMAT(T.CREATE_TIME_, '%Y-%m-%d %H:%i') createDate,U.USER_NAME_ createUserName,
+		F.ID_ fileUid,T.SUFFIX_
+		FROM T_ATTACHMENT T LEFT JOIN ORG_USER U ON T.CREATE_USER_=U.ID_ left join T_FILE F ON T.PARENT_ID_=F.ID_  where T.parent_id_ IN
+		(SELECT ID_ FROM T_FILE D WHERE IF_MERGE_='0' <include refid="queryFileSql"/>)
+		order by createDate desc LIMIT #{start}, #{pageSize}
+
+
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="fileLists">
+		<id property="id" column="id" />
+		<!--<collection property="fileIdList" column="{parentId = id}"  javaType="java.util.List"  select="searchFileLists" />-->
+		<collection property="member" column="{parentId = id}"  javaType="java.util.List"  select="selectMenberById" />
+	</resultMap>
+	
+	<select id="searchFileLists" resultType="java.util.HashMap">
+		select D.id_ fileId, D.FILE_NAME_ fileName, D.SUFFIX_ suffix, D.XTYPE_ xtype, D.SIZE_ size, D.LENGTH_ length,
+		U.USER_NAME_ createUserName
+		from T_ATTACHMENT D LEFT JOIN ORG_USER U ON D.CREATE_USER_=U.ID_ where D.parent_id_ = #{parentId} order by D.CREATE_TIME_ desc
+	</select>
+	
+	
+	<!-- 根据id查询附件 -->
+	<select id="getFileList" resultType="com.jrsoft.business.modules.fileManage.model.FileBean">
+		select id_ fileId, FILE_NAME_ fileName, suffix_ suffix, COMPANY_ company, 
+		(select USER_NAME_ from ORG_USER where ID_= D.CREATE_USER_) createUserName,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createDate 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100), CREATE_TIME_,23) createDate 
+		</if>
+		from T_ATTACHMENT D where parent_id_ = #{id}
+	</select>
+	
+	
+	<!-- 通过id查询文件与项目信息(扫码) -->
+	<select id="getFileLists" resultMap="fileScanLists">
+		select ID_ id, file_name_ fileName, FILE_CODE_ fileCode, 
+		(select XMMC_ from WX_PROJECT where id_ = #{projUid}) projName, 
+		(select USER_NAME_ from ORG_USER where ID_= a.CREATE_USER_) createUserName, 
+		(select id_ from T_ATTACHMENT where PARENT_ID_ = #{projUid}) fileId 
+		from T_FILE a where id_ = #{id} 
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="fileScanLists">
+		<id property="id" column="id" />
+		<collection property="fileIdList" column="{parentId = id}"  javaType="java.util.List"  select="searchScanFileLists" />
+	</resultMap>
+	
+	<select id="searchScanFileLists" resultType="java.util.HashMap">
+		select id_ fileId, FILE_NAME_ fileName, SUFFIX_ suffix, XTYPE_ xtype, SIZE_ size, LENGTH_ length, 
+		(select USER_NAME_ from ORG_USER where ID_= CREATE_USER_) createUserName,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createDate
+		from T_ATTACHMENT where parent_id_ = #{parentId} order by CREATE_TIME_
+	</select>
+	
+	
+	<select id="searchSelectCatalogue" resultType="java.util.HashMap">
+		select a.ID_, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_, a.PARENT_UID_, a.COMPANY_,a.LB_
+		from T_DOC_CATALOG_ a where a.ID_ = #{catalogueId} ORDER BY CREATE_TIME_
+	</select>
+	
+	
+	<insert id="insertSelectEntity">
+		INSERT INTO T_DOC_DOCUMENT_(
+			ID_,
+			CODE_,
+			REMARK_,
+			CREATE_USER_,
+			CREATE_TIME_,
+			UPDATE_USER_,
+			UPDATE_TIME_,
+			NAME_,
+			PARENT_UID_,
+			COMPANY_,
+			SUB_COMPANY_,
+			SORT_,
+			LOCK_,
+			SUBJECT_,
+			PROC_INST_ID_,
+			PROJ_UID_,
+			XMMC_,
+			XMBH_,
+			POSITION_ID_,
+			DEPART_ID_,
+			LEAVEL1_CODE_,
+			LEAVEL2_CODE_,
+			LEAVEL3_CODE_,
+			LB_,
+			RECEIVER_UID_
+		)
+		VALUES(
+			#{uid},
+			null,
+			null,
+			#{selectCreateUser},
+			#{selectCreateTime},
+			#{selectUpdateUser},
+			#{selectUpdateTime},
+			#{selectName},
+			#{projUid},
+			#{selectCompany},
+			#{selectSubCompany},
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			1,
+			#{selectLb}
+		)
+	</insert>
+	
+	
+	<insert id="insertEntity">
+		INSERT INTO T_DOC_DOCUMENT_(
+			ID_,
+			CODE_,
+			REMARK_,
+			CREATE_USER_,
+			CREATE_TIME_,
+			UPDATE_USER_,
+			UPDATE_TIME_,
+			NAME_,
+			PARENT_UID_,
+			COMPANY_,
+			SUB_COMPANY_,
+			SORT_,
+			LOCK_,
+			SUBJECT_,
+			PROC_INST_ID_,
+			PROJ_UID_,
+			XMMC_,
+			XMBH_,
+			POSITION_ID_,
+			DEPART_ID_,
+			LEAVEL1_CODE_,
+			LEAVEL2_CODE_,
+			LEAVEL3_CODE_,
+			LB_,
+			RECEIVER_UID_
+		)
+		VALUES(
+			#{keyId},
+			null,
+			null,
+			#{createUser},
+			#{createTime},
+			#{updateUser},
+			#{updateTime},
+			#{name},
+			#{uid},
+			#{company},
+			#{subCompany},
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			null,
+			1,
+			#{lb}
+		)
+	</insert>
+	
+	
+	<select id="searchNextCatalogue" resultType="java.util.HashMap">
+		select a.ID_, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_, a.PARENT_UID_, a.COMPANY_,a.LB_
+		from T_DOC_CATALOG_ a where a.PARENT_UID_ = #{id} ORDER BY CREATE_TIME_
+	</select>
+	
+	
+	<select id="searchFirstCatalogue" resultType="java.util.HashMap">
+		SELECT a.ID_, a.CREATE_USER_, a.CREATE_TIME_, a.NAME_, a.PARENT_UID_, a.COMPANY_,a.LB_
+		FROM T_DOC_CATALOG_ a WHERE a.PARENT_UID_ = #{catalogueId} ORDER BY CREATE_TIME_
+	</select>
+	
+	
+	<select id="searchDirectoryList" resultType="java.util.HashMap">
+		select a.ID_ id, a.CODE_ code, a.REMARK_ remark, a.CREATE_USER_ createUser, 
+		a.UPDATE_TIME_, a.NAME_ label, a.PARENT_UID_ parentUid, a.LB_ lb, a.SORT_ sort 
+		<!-- (case WHEN (SELECT COUNT(ID_) FROM T_DOC_CATALOG_ where PARENT_UID_ = a.id_ )=0 THEN 'false' ELSE 'true' END ) leaf -->  
+		from T_DOC_CATALOG_ a where a.PARENT_UID_ = #{parentUid} and COMPANY_ = #{companyUid}
+		order by SORT_
+	</select>
+	
+	
+	<delete id="removeCatalogue">
+		DELETE FROM T_DOC_CATALOG_ WHERE id_ IN
+		<foreach collection="idss" index="index" item="id" open="(" separator="," close=")">
+                #{id}       
+        </foreach> 
+	</delete>
+	
+	
+	<select id="searchCatalogueById" resultType="java.util.HashMap">
+		select a.ID_ id, a.CODE_ code, a.REMARK_ remark, a.CREATE_USER_ createUser, 
+		a.UPDATE_TIME_, a.NAME_ label, a.PARENT_UID_ parentUid, a.LB_ lb, a.SORT_ sort 
+		from T_DOC_CATALOG_ a where a.id_ = #{id}
+	</select>
+</mapper> 

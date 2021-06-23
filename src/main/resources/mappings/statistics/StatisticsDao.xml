@@ -1,0 +1,677 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.statistics.dao.StatisticsDao">
+
+	<!--获取项目分布数量统计树数据-->
+	<select id="getDistributionNum" resultType="java.util.HashMap">
+		SELECT CLASSIFY_ classify,COUNT(ID_) numCount FROM wx_project where COMPANY_=#{companyUid} and (IF_DELETE_ = 0 OR IF_DELETE_ is null) GROUP BY CLASSIFY_
+	</select>
+
+	<select id="getclassifyNumList" resultType="java.util.HashMap">
+		SELECT STATUS_,COUNT(ID_) numCount  FROM wx_project where COMPANY_=#{companyUid} and (IF_DELETE_ = 0 OR IF_DELETE_ is null) AND CLASSIFY_=#{classify} and STATUS_ IS NOT NULL GROUP BY STATUS_
+
+	</select>
+
+	<!--获取集团大屏检查统计排行-->
+	<select id="getCheckRanking" resultType="com.jrsoft.business.modules.statistics.domain.ProjectRanking">
+		SELECT *,CASE WHEN totalNum=0 THEN 0 ELSE ROUND(finishNum/totalNum,3)*100 END percent,
+		<if test="checkType == 'measure' or checkType == 'procedure'">
+			CASE WHEN planNum=0 THEN 0 ELSE ROUND(actNum/planNum,3)*100 END workPercent,
+			CASE WHEN actNum=0 THEN 0 ELSE ROUND(passNum/actNum,3)*100 END passPercent,
+		</if>
+		CASE WHEN planTotalNum=0 THEN 0 ELSE ROUND(hadCheckNum/planTotalNum,3)*100 END checkPercent FROM (
+		SELECT XMMC_ projName,ID_ id,
+		<if test="checkType != null and checkType == 'procedure'">
+			(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=D.ID_ AND ENABLE_=1 AND YEAR(CREATE_TIME_)=YEAR(NOW())) planNum,
+			(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=D.ID_ AND ENABLE_=1 AND CONSTRUCTION_STATUS_!='0' AND YEAR(CREATE_TIME_)=YEAR(NOW())) actNum,
+			(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=D.ID_ AND ENABLE_=1 AND CONSTRUCTION_STATUS_='3' AND YEAR(CREATE_TIME_)=YEAR(NOW())) passNum,
+		</if>
+		<if test="checkType == 'measure'">
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.ID_ AND FORM_TYPE_='measure' AND PASS_='1' AND YEAR(CREATE_TIME_)=YEAR(NOW())) passNum,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.ID_ AND FORM_TYPE_='measure' AND YEAR(CREATE_TIME_)=YEAR(NOW())) planNum,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.ID_ AND FORM_TYPE_='measure' AND (MEASURE_VALUE_ IS NOT NULL OR DESIGN_VALUE_ IS NOT NULL) ) actNum,
+		</if>
+		<choose>
+			<when test="orderType != null and orderType=='checkPercent'">
+				(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+				WHERE PROJ_UID_=D.ID_ AND LB_=#{checkType} and ISSUE_STATUS_='已发布') ) planTotalNum,
+				(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+				WHERE PROJ_UID_=D.ID_ AND LB_=#{checkType} and ISSUE_STATUS_='已发布') AND TASK_STATUS_='1') hadCheckNum,
+				0 totalNum,0 finishNum
+			</when>
+			<otherwise>
+				0 planTotalNum,0 hadCheckNum,
+				(SELECT COUNT(ID_) FROM t_inspect_record WHERE CHECK_TYPE_=#{checkType} AND DATA_TYPE_='inspect' AND PROJ_UID_=D.ID_) totalNum,
+				(SELECT COUNT(ID_) FROM t_inspect_record WHERE CHECK_TYPE_=#{checkType} AND DATA_TYPE_='inspect' AND PROJ_UID_=D.ID_ AND STATUS_ IN ('4','5')) finishNum
+			</otherwise>
+		</choose>
+		FROM wx_project D where COMPANY_=#{companyUid} and (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+        <if test="classify != null and classify != ''">
+            AND CLASSIFY_=#{classify}
+        </if>
+		) DATA
+		<choose>
+			<when test="orderType != null and orderType!=''">
+				ORDER BY ${orderType}
+			</when>
+			<otherwise>
+				ORDER BY percent
+			</otherwise>
+		</choose>
+		 DESC LIMIT #{start}, #{pageSize}
+	</select>
+
+	<!--获取项目总数-->
+	<select id="getProjectTotalCount" resultType="int">
+		SELECT COUNT(ID_) FROM wx_project WHERE COMPANY_=#{companyUid} and (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+		<if test="classify != null and classify != ''">
+			AND CLASSIFY_=#{classify}
+		</if>
+	</select>
+
+	<sql id="queryCheckItemRanking">
+		<if test="projUid != null and projUid != ''">
+			AND PROJ_UID_=#{projUid}
+		</if>
+		<if test="areaUid != null and areaUid != ''">
+			AND INSPECT_PART_UID_=#{areaUid}
+		</if>
+		<if test="checkItemUid != null and checkItemUid != ''">
+			AND INSPECT_ITEM_NAME_ like concat('%',#{checkItemUid},'%')
+		</if>
+		<if test="status != null and status != ''">
+			AND STATUS_=#{status}
+		</if>
+		AND CHECK_TYPE_=#{checkType} and DATA_TYPE_='inspect'
+	</sql>
+	<select id="getCheckItemRanking" resultType="java.util.HashMap">
+		SELECT itemName,COUNT(INSPECT_ITEM_UID_) count FROM (
+			SELECT SUBSTRING_INDEX(INSPECT_ITEM_NAME_,'>',2) itemName,INSPECT_ITEM_UID_
+			FROM t_inspect_record WHERE COMPANY_=#{companyUid}
+			<include refid="queryCheckItemRanking"/>
+		) DATA GROUP BY itemName ORDER BY count DESC LIMIT #{start}, #{pageSize}
+
+	</select>
+	<!--获取检查项分布总数-->
+	<select id="getCheckItemRankingTotalCount" resultType="int">
+		SELECT COUNT(INSPECT_ITEM_UID_) FROM (
+			SELECT SUBSTRING_INDEX(INSPECT_ITEM_NAME_,'>',2) itemName,INSPECT_ITEM_UID_
+			FROM t_inspect_record WHERE COMPANY_=#{companyUid}
+			<if test="projUid != null and projUid != ''">
+				AND PROJ_UID_=#{projUid}
+			</if>
+			<include refid="queryCheckItemRanking"/>
+			GROUP BY itemName
+		) DATA
+
+	</select>
+
+
+	<select id="getProjProgressRanking" resultType="com.jrsoft.business.modules.statistics.domain.ProjectRanking">
+		SELECT *,CASE WHEN totalCount=0 THEN 0 ELSE ROUND(overdueCount/totalCount,3)*100 END percent,
+		CASE WHEN totalCount=0 THEN 0 ELSE ROUND(finishCount/totalCount,3)*100 END finishPercent FROM (
+			SELECT XMMC_ projName,ID_ id,
+			(SELECT COUNT(ID_) FROM GA_TASK WHERE PROJ_UID_=D.ID_) totalCount,
+			(SELECT COUNT(ID_) FROM GA_TASK WHERE PROJ_UID_=D.ID_
+			AND DATE_FORMAT(END_DATE_, '%Y-%m-%d') <![CDATA[ < ]]> DATE_FORMAT(NOW(), '%Y-%m-%d')
+			and (ifnull(PROGRESS_,0) <![CDATA[ < ]]> 100 OR STATUS_=2)) overdueCount,
+			(SELECT COUNT(ID_) FROM GA_TASK WHERE PROJ_UID_=D.ID_ and ifnull(PROGRESS_,0)=100 and STATUS_=1 ) finishCount
+			FROM WX_PROJECT D WHERE COMPANY_=#{companyUid} and (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+            <if test="classify != null and classify != ''">
+                AND CLASSIFY_=#{classify}
+            </if>
+		) DATA
+		<choose>
+			<when test="orderType != null and orderType!=''">
+				ORDER BY ${orderType}
+			</when>
+			<otherwise>
+				ORDER BY percent
+			</otherwise>
+		</choose>
+		DESC LIMIT #{start}, #{pageSize}
+	</select>
+
+
+	<select id="getProjProgressList" resultType="com.jrsoft.business.modules.statistics.domain.ProjectRanking">
+		SELECT *,CASE WHEN totalWeight=0 THEN 0 ELSE ROUND(totalProgress/totalWeight,1) END percent FROM (
+		SELECT D.XMMC_ projName,D.ID_ id,
+		(SELECT SUM(ifnull(TASK_WEIGHT_,100)) FROM GA_TASK WHERE PARENT_='0' AND SCHEDULE_UID_=B.ID_) totalWeight,
+		(SELECT SUM(ifnull(PROGRESS_,0)*ifnull(TASK_WEIGHT_,100)) FROM GA_TASK WHERE PARENT_='0' AND SCHEDULE_UID_=B.ID_) totalProgress
+		FROM WX_PROJECT D LEFT JOIN GA_SCHEDULE B ON D.ID_=B.PROJ_UID_  WHERE B.ENABLE_=1 AND D.COMPANY_=#{companyUid}
+		and (D.IF_DELETE_ = 0 OR D.IF_DELETE_ is null)
+        <if test="classify != null and classify != ''">
+            AND D.CLASSIFY_=#{classify}
+        </if>
+		) DATA ORDER BY percent DESC LIMIT #{start}, #{pageSize}
+	</select>
+
+	<sql id="queryDateSql">
+		<if test="dateTime != null and dateTime == 'month'">
+			AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )
+		</if>
+		<if test="dateTime != null and dateTime == 'year'">
+			AND YEAR(CREATE_TIME_)=YEAR(NOW())
+		</if>
+	</sql>
+	<select id="getCheckCount" resultType="java.util.HashMap">
+		SELECT
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+		WHERE PROJ_UID_=#{projUid} AND LB_=#{checkType} and ISSUE_STATUS_='已发布')
+		<include refid="queryDateSql"/>
+		) planTotalNum,
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+		WHERE PROJ_UID_=#{projUid} AND LB_=#{checkType} and ISSUE_STATUS_='已发布')
+		AND TASK_STATUS_='1'
+		<include refid="queryDateSql"/>
+		) hadCheckNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE CHECK_TYPE_=#{checkType} AND DATA_TYPE_='inspect' AND PROJ_UID_=#{projUid}
+		<include refid="queryDateSql"/>
+		) problemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE CHECK_TYPE_=#{checkType} AND DATA_TYPE_='inspect' AND PROJ_UID_=#{projUid} AND STATUS_ IN ('4','5')
+		<include refid="queryDateSql"/>
+		) finishNum
+	</select>
+
+	<select id="getCheckNumRanking" resultType="java.util.HashMap">
+		SELECT *,CASE WHEN totalCount=0 THEN 0 ELSE ROUND(finishNum/totalCount,3)*100 END finishPercent,
+		CASE WHEN totalCount=0 THEN 0 ELSE ROUND(onTimeFinishNum/totalCount,3)*100 END onTimePercent FROM (
+			SELECT COUNT(ID_) totalCount,CHECK_TYPE_ checkType,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND CHECK_TYPE_=D.CHECK_TYPE_
+			AND DATA_TYPE_='inspect' AND STATUS_ IN ('4','5')
+			<include refid="queryDateSql"/>
+			) finishNum,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='inspect' AND STATUS_ ='4'
+			<include refid="queryDateSql"/>
+			) onTimeFinishNum
+			FROM t_inspect_record D WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect'
+			<include refid="queryDateSql"/>
+			GROUP BY CHECK_TYPE_
+		) data
+	</select>
+
+	<select id="getCheckStatusList" resultType="java.util.HashMap">
+		SELECT STATUS_ status,COUNT(ID_) countNum FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND STATUS_ IS NOT NULL
+		<if test="checkType != null and checkType != ''">
+			AND CHECK_TYPE_=#{checkType}
+		</if>
+		<if test="areaUid != null and areaUid != ''">
+			AND INSPECT_PART_UID_=#{areaUid}
+		</if>
+		<if test="checkItemUid != null and checkItemUid != ''">
+			AND INSPECT_ITEM_NAME_ like concat('%',#{checkItemUid},'%')
+		</if>
+		<if test="status != null and status != ''">
+			AND STATUS_=#{status}
+		</if>
+		GROUP BY STATUS_
+	</select>
+
+	<select id="getCheckStatusCount" resultType="int">
+		SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND STATUS_ IS NOT NULL
+		<if test="checkType != null and checkType != ''">
+			AND CHECK_TYPE_=#{checkType}
+		</if>
+		<if test="areaUid != null and areaUid != ''">
+			AND INSPECT_PART_UID_=#{areaUid}
+		</if>
+		<if test="checkItemUid != null and checkItemUid != ''">
+			AND INSPECT_ITEM_UID_=#{areaUid}
+		</if>
+		<if test="status != null and status != ''">
+			AND STATUS_=#{status}
+		</if>
+	</select>
+	<!--获取工序数量统计-->
+	<select id="getProcedureCount" resultType="java.util.HashMap">
+		SELECT
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )) monthPlanNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthPlanNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearPlanNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 ) allPlanNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_!='0' AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )) monthActNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_!='0' AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthActNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_!='0' AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearActNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_!='0' ) allActNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_='3' AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT(CURDATE( ) , '%Y%m' )) monthPassNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_='3' AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthPassNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_='3' AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearPassNum,
+		(SELECT COUNT(ID_) FROM t_process_task WHERE PROJ_UID_=#{projUid} AND ENABLE_=1 AND CONSTRUCTION_STATUS_='3' ) allPassNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure' AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )) monthProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure' AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure' AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure') allProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure'
+		AND STATUS_ IN ('4','5') AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ), '%Y%m' )) monthFinishNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure'
+		AND STATUS_ IN ('4','5') AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthFinishNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure'
+		AND STATUS_ IN ('4','5') AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearFinishNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND CHECK_TYPE_='procedure'
+		AND STATUS_ IN ('4','5') ) allFinishNum
+	</select>
+
+	<select id="getMeasureCount" resultType="java.util.HashMap">
+		SELECT
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+		WHERE PROJ_UID_=#{projUid} AND LB_='measure' and ISSUE_STATUS_='已发布') AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )) monthPlanNum,
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+		WHERE PROJ_UID_=#{projUid} AND LB_='measure' and ISSUE_STATUS_='已发布') AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthPlanNum,
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+		WHERE PROJ_UID_=#{projUid} AND LB_='measure' and ISSUE_STATUS_='已发布') AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearPlanNum,
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan
+		WHERE PROJ_UID_=#{projUid} AND LB_='measure' and ISSUE_STATUS_='已发布') ) allPlanNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )) monthActNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthActNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearActNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' ) allActNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND PASS_='1' AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT(CURDATE( ) , '%Y%m' )) monthPassNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND PASS_='1' AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthPassNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND PASS_='1' AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearPassNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND FORM_TYPE_='measure' AND PASS_='1' ) allPassNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure' AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ) , '%Y%m' )) monthProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure' AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure' AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure' ) allProblemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure'
+		AND STATUS_ IN ('4','5') AND DATE_FORMAT( CREATE_TIME_, '%Y%m' ) = DATE_FORMAT( CURDATE( ), '%Y%m' )) monthFinishNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure'
+		AND STATUS_ IN ('4','5') AND PERIOD_DIFF( date_format(now( ) , '%Y%m' ) , date_format( CREATE_TIME_, '%Y%m' ) ) =1) lastMonthFinishNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure'
+		AND STATUS_ IN ('4','5') AND YEAR(CREATE_TIME_)=YEAR(NOW())) yearFinishNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=#{projUid} AND DATA_TYPE_='inspect' AND FORM_TYPE_='measure'
+		AND STATUS_ IN ('4','5') ) allFinishNum
+	</select>
+
+	<select id="getProgressPlanNums" resultType="java.util.HashMap">
+		SELECT monthNum,COUNT(ID_) countNum FROM (
+			SELECT month(END_DATE_) monthNum,ID_ FROM ga_task WHERE PROJ_UID_=#{projUid} AND YEAR(END_DATE_)=YEAR(NOW())
+		) DATA GROUP BY monthNum
+
+	</select>
+
+	<select id="getProgressActNums" resultType="java.util.HashMap">
+		SELECT monthNum,COUNT(ID_) countNum FROM (
+			SELECT month(CREATE_TIME_) monthNum,ID_ FROM ga_task_record WHERE PROGRESS_='100' AND YEAR(CREATE_TIME_)=YEAR(NOW())
+			AND PARENT_UID_ IN (SELECT ID_ FROM ga_task WHERE PROJ_UID_=#{projUid})
+		) DATA GROUP BY monthNum
+	</select>
+
+	<sql id="queryCheckNumCollect">
+		WHERE D.COMPANY_=#{companyUid} AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+		<if test="checkType != null and checkType != ''">
+			AND D.CHECK_TYPE_=#{checkType}
+		</if>
+		<if test="projUid != null and projUid != ''">
+			AND D.PROJ_UID_=#{projUid}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			AND D.CREATE_TIME_ BETWEEN #{startDate} AND #{endDate}
+		</if>
+	</sql>
+	<select id="getCheckNumCollect" resultType="java.util.HashMap">
+		SELECT P.XMMC_ projName,D.PROJ_UID_ id,COUNT(D.ID_) checkNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ and DATA_TYPE_='inspect' and CHECK_TYPE_=#{checkType}) problemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ and DATA_TYPE_='record' and CHECK_TYPE_=#{checkType}) passNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ and DATA_TYPE_='inspect' and CHECK_TYPE_=#{checkType} AND STATUS_ IN ('3','4','5')) hadRectifyNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ and DATA_TYPE_='inspect' and CHECK_TYPE_=#{checkType} AND STATUS_='2') waitingRectifyNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ and DATA_TYPE_='inspect' and CHECK_TYPE_=#{checkType} AND STATUS_='3') waitingReviewNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ and DATA_TYPE_='inspect' and CHECK_TYPE_=#{checkType} AND STATUS_ IN ('4','5')) finishNum
+		FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+		<include refid="queryCheckNumCollect"/>
+		GROUP BY D.PROJ_UID_ LIMIT #{start},#{pageSize}
+	</select>
+	<select id="getCheckNumCollectTotalCount" resultType="int">
+		SELECT COUNT(PROJ_UID_) FROM (
+			SELECT D.PROJ_UID_ FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+		<include refid="queryCheckNumCollect"/>
+			GROUP BY D.PROJ_UID_
+		) DATA
+	</select>
+	<select id="getMeasureNumCollect" resultType="java.util.HashMap">
+		SELECT COUNT(D.ID_) totalNum,D.PROJ_UID_ id,
+		P.XMMC_  projName,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE FORM_TYPE_ ='measure' AND PROJ_UID_=D.PROJ_UID_ AND PASS_='1') passNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE FORM_TYPE_ ='measure' AND PROJ_UID_=D.PROJ_UID_ AND DATA_TYPE_='inspect') problemNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND FORM_TYPE_='measure' AND (MEASURE_VALUE_ IS NOT NULL OR DESIGN_VALUE_ IS NOT NULL) ) hadCheckNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE FORM_TYPE_ ='measure' AND PROJ_UID_=D.PROJ_UID_ AND DATA_TYPE_='inspect' AND STATUS_ IN('4','5')) hasRectifyNum
+		FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_ WHERE D.COMPANY_=#{companyUid} AND D.FORM_TYPE_ ='measure'
+		AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+		<if test="projUid != null and projUid != ''">
+			AND D.PROJ_UID_=#{projUid}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			AND D.CREATE_TIME_ BETWEEN #{startDate} AND #{endDate}
+		</if>
+		GROUP BY D.PROJ_UID_ LIMIT #{start},#{pageSize}
+	</select>
+	<select id="getMeasureNumCollectTotalCount" resultType="int">
+		SELECT COUNT(PROJ_UID_) FROM (
+			SELECT D.PROJ_UID_ FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+			WHERE D.COMPANY_=#{companyUid} AND D.FORM_TYPE_ ='measure' AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+			<if test="projUid != null and projUid != ''">
+				AND D.PROJ_UID_=#{projUid}
+			</if>
+			<if test="startDate != null and startDate != ''">
+				AND D.CREATE_TIME_ BETWEEN #{startDate} AND #{endDate}
+			</if>
+			GROUP BY PROJ_UID_
+		) DATA
+	</select>
+
+	<sql id="queryYeTaiItemCount">
+		SELECT COUNT(A.ID_) FROM t_inspect_record A LEFT JOIN t_work_part P ON A.INSPECT_PART_UID_=P.ID_
+		WHERE P.YE_TAI_=T.YE_TAI_ AND A.DATA_TYPE_='inspect'
+		<if test="checkType != null and checkType != ''">
+			AND A.CHECK_TYPE_=#{checkType}
+		</if>
+	</sql>
+
+	<select id="getYeTaiAnalyze" resultType="java.util.HashMap">
+		SELECT COUNT(D.ID_) totalNum,T.YE_TAI_,
+		(<include refid="queryYeTaiItemCount"/> and (SELECT CLASSIFY_ FROM WX_PROJECT WHERE ID_=A.PROJ_UID_)='自购地') zigoudiNum,
+		(<include refid="queryYeTaiItemCount"/> and (SELECT CLASSIFY_ FROM WX_PROJECT WHERE ID_=A.PROJ_UID_)='自购地' AND A.STATUS_ IN ('3','4')) zigoudiFinshNum,
+		(<include refid="queryYeTaiItemCount"/> and (SELECT CLASSIFY_ FROM WX_PROJECT WHERE ID_=A.PROJ_UID_)='租赁') zuliNum,
+		(<include refid="queryYeTaiItemCount"/> and (SELECT CLASSIFY_ FROM WX_PROJECT WHERE ID_=A.PROJ_UID_)='租赁' AND A.STATUS_ IN ('3','4')) zuliFinshNum
+		FROM t_inspect_record D LEFT JOIN t_work_part T ON D.INSPECT_PART_UID_=T.ID_ WHERE D.COMPANY_ =#{companyUid} AND T.YE_TAI_ IS NOT NULL
+		AND D.DATA_TYPE_='inspect'
+		<if test="checkType != null and checkType != ''">
+			AND D.CHECK_TYPE_=#{checkType}
+		</if>
+		GROUP BY T.YE_TAI_
+	</select>
+
+	<select id="getProjMapDistribution" resultType="java.util.HashMap">
+		SELECT ADDR_PROVINCE_ province,COUNT(ID_) projNum FROM WX_PROJECT WHERE COMPANY_ =#{companyUid} and (IF_DELETE_ = 0 OR IF_DELETE_ is null) AND ADDR_PROVINCE_ IS NOT NULL GROUP BY ADDR_PROVINCE_
+	</select>
+
+	<select id="getTaskCollect" resultType="java.util.HashMap">
+		SELECT D.SUBJECT_ subject,D.PRINCIPAL_NAME_ principalName,D.END_TIME_ endDate,D.STATUS_ statusVal,DATE_FORMAT(D.UPDATE_TIME_, '%Y-%m-%d') updateDate,
+		P.XMMC_ projName,D.PROJ_UID_ id,
+		(SELECT TITLE_ FROM T_MEETING WHERE ID_=D.PARENT_UID_) meetingTitle,
+		(select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_) feedBackCount
+		FROM WX_WORK_ORDER D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+		<where>
+			D.COMPANY_=#{companyUid}  AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+			<if test="projUid != null and projUid != ''">
+				AND D.PROJ_UID_=#{projUid}
+			</if>
+			<if test="taskStatus != null and taskStatus == 2">
+				AND (select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_)=0
+			</if>
+			<if test="taskStatus != null and taskStatus == 3">
+				AND (select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_) <![CDATA[ > ]]> 0 AND D.STATUS_!='1'
+			</if>
+			<if test="taskStatus != null and taskStatus == 4">
+				AND (select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_) <![CDATA[ > ]]> 0 AND D.STATUS_='1'
+			</if>
+			<if test="search != null and search != ''">
+				AND D.PRINCIPAL_NAME_ LIKE concat('%', #{search}, '%')
+			</if>
+		</where>
+		ORDER BY projName LIMIT #{start},#{pageSize}
+	</select>
+
+	<select id="getTaskCollectTotalCount" resultType="int">
+		SELECT COUNT(PROJ_UID_) FROM (
+			SELECT D.PROJ_UID_
+			FROM WX_WORK_ORDER D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+			<where>
+				D.COMPANY_=#{companyUid}  AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+				<if test="projUid != null and projUid != ''">
+					AND D.PROJ_UID_=#{projUid}
+				</if>
+				<if test="taskStatus != null and taskStatus == 2">
+					AND (select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_)=0
+				</if>
+				<if test="taskStatus != null and taskStatus == 3">
+					AND (select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_) <![CDATA[ > ]]> 0 AND D.STATUS_!='1'
+				</if>
+				<if test="taskStatus != null and taskStatus == 4">
+					AND (select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=D.ID_) <![CDATA[ > ]]> 0 AND D.STATUS_='1'
+				</if>
+				<if test="search != null and search != ''">
+					AND D.PRINCIPAL_NAME_ LIKE concat('%', #{search}, '%')
+				</if>
+			</where>
+		) DATA
+	</select>
+
+	<select id="getCheckItemCollect" resultType="java.util.HashMap">
+		SELECT case CHECK_TYPE_ when 'quality' THEN '质量' when 'safety' THEN '安全' when 'measure' THEN '实测' when 'procedure' THEN '工序' ELSE '' END checkType,
+		COUNT(D.ID_) checkNum,
+		P.XMMC_ projName,D.PROJ_UID_ id,
+		(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ IN (SELECT ID_ FROM t_inspection_plan WHERE LB_=D.CHECK_TYPE_ AND PROJ_UID_=D.PROJ_UID_ AND ISSUE_STATUS_='已发布')) planNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='record') passNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='inspect') rectifyNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='inspect' and STATUS_ IN ('3','4','5')) hadRectifyNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='inspect' and STATUS_ IN ('1','2')) notRectifyNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='inspect' and STATUS_ IN ('4','5')) hadReviewNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_ AND DATA_TYPE_='inspect' and STATUS_ IN ('3')) waitingReviewNum
+		FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_ WHERE D.COMPANY_=#{companyUid}
+		AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+		<if test="checkType != null and checkType != ''">
+			AND D.CHECK_TYPE_=#{checkType}
+		</if>
+		GROUP BY D.PROJ_UID_,D.CHECK_TYPE_ LIMIT #{start}, #{pageSize}
+	</select>
+
+	<select id="getCheckItemCollectTotalCount" resultType="int">
+		SELECT COUNT(PROJ_UID_) FROM (
+		SELECT PROJ_UID_ FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_ WHERE D.COMPANY_=#{companyUid}
+		AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null)
+		<if test="checkType != null and checkType != ''">
+			AND D.CHECK_TYPE_=#{checkType}
+		</if>
+		GROUP BY D.PROJ_UID_,D.CHECK_TYPE_
+		) DATA
+	</select>
+
+	<select id="getAreaProblemCollect" resultType="java.util.HashMap">
+		SELECT case D.CHECK_TYPE_ when 'quality' THEN '质量' when 'safety' THEN '安全' when 'measure' THEN '实测' when 'procedure' THEN '工序' ELSE '' END checkType,
+		D.PROJ_UID_ id,P.XMMC_ projName,
+		(SELECT COUNT(ID_) FROM t_inspect_record T WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_
+		AND (SELECT YE_TAI_ FROM T_WORK_PART WHERE ID_=T.INSPECT_PART_UID_)='仓库楼') warehouseNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record T WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_
+		AND (SELECT YE_TAI_ FROM T_WORK_PART WHERE ID_=T.INSPECT_PART_UID_)='办公楼') officNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record T WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_
+		AND (SELECT YE_TAI_ FROM T_WORK_PART WHERE ID_=T.INSPECT_PART_UID_)='分拣中心') edcsNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record T WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_
+		AND (SELECT YE_TAI_ FROM T_WORK_PART WHERE ID_=T.INSPECT_PART_UID_)='综合楼') complexNum,
+		(SELECT COUNT(ID_) FROM t_inspect_record T WHERE PROJ_UID_=D.PROJ_UID_ AND CHECK_TYPE_=D.CHECK_TYPE_
+		AND (SELECT YE_TAI_ FROM T_WORK_PART WHERE ID_=T.INSPECT_PART_UID_)='中转站') transferNum
+		FROM t_inspect_record D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_ WHERE D.COMPANY_=#{companyUid}
+		AND (P.IF_DELETE_ = 0 OR P.IF_DELETE_ is null) AND D.CHECK_TYPE_ IS NOT NULL
+		<if test="checkType != null and checkType != ''">
+			AND D.CHECK_TYPE_=#{checkType}
+		</if>
+		GROUP BY PROJ_UID_,CHECK_TYPE_ LIMIT #{start}, #{pageSize}
+	</select>
+
+	<resultMap type="java.util.HashMap" id="projAreaMap">
+		<id property="id" column="INSPECT_PART_UID_" />
+		<result property="inspectPartName" column="INSPECT_PART_NAME_" />
+		<result property="chekNum" column="chekNum" />
+		<result property="checkType" column="CHECK_TYPE_" />
+		<collection property="checkItems" column="{partUid=INSPECT_PART_UID_,checkType=CHECK_TYPE_}" javaType="java.util.List"  select="selectInspectItem" />
+	</resultMap>
+
+	<select id="getProjAreaReport" resultMap="projAreaMap">
+		SELECT INSPECT_PART_UID_,INSPECT_PART_NAME_,COUNT(ID_) chekNum,#{checkType} as CHECK_TYPE_ FROM t_inspect_record D
+		where D.PROJ_UID_=#{projUid}
+		<if test="checkType != null and checkType != ''">
+			AND D.CHECK_TYPE_=#{checkType}
+		</if>
+		<if test="yeTai != null and yeTai != ''">
+			AND (SELECT YE_TAI_ FROM T_WORK_PART WHERE ID_=D.INSPECT_PART_UID_)=#{yeTai}
+		</if>
+		GROUP BY INSPECT_PART_UID_
+	</select>
+
+	<select id="selectInspectItem" resultType="java.util.HashMap">
+		SELECT INSPECT_ITEM_NAME_,COUNT(ID_) NUM_ FROM t_inspect_record
+		where INSPECT_PART_UID_ =#{partUid}
+		<if test="checkType != null and checkType != ''">
+			AND CHECK_TYPE_=#{checkType}
+		</if>
+		GROUP BY INSPECT_ITEM_NAME_
+	</select>
+
+	<sql id="queryApplicationNum">
+		left join wx_project P ON D.PROJ_UID_=P.ID_ where (P.IF_DELETE_ IS NULL OR P.IF_DELETE_='0') AND D.COMPANY_=#{companyUid}
+	</sql>
+	<select id="getApplicationNums" resultType="java.util.HashMap">
+		SELECT (select count(id_) from wx_project where COMPANY_=#{companyUid} AND (IF_DELETE_ IS NULL OR IF_DELETE_='0')) projNum,
+		 (select count(id_) from wx_project where COMPANY_=#{companyUid} AND (IF_DELETE_ IS NULL OR IF_DELETE_='0') and YEARWEEK( date_format(CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now()) ) projWeekNum,
+		 (select count(D.id_) from T_NEWS D <include refid="queryApplicationNum"/> ) newsNum,
+		 (select count(D.id_) from T_NEWS D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) newsWeekNum,
+		 (select count(D.id_) from T_WORK_PART D <include refid="queryApplicationNum"/>) partsNum,
+		 (select count(D.id_) from T_WORK_PART D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) partsWeekNum,
+		 (select count(D.id_) from T_DRAWING D <include refid="queryApplicationNum"/> ) drawingNum,
+		 (select count(D.id_) from T_DRAWING D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) drawingWeekNum,
+		 (select count(D.id_) from WX_WORK_LOG D <include refid="queryApplicationNum"/>) dailyNum,
+		 (select count(D.id_) from WX_WORK_LOG D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) dailyWeekNum,
+		 (select count(D.id_) from WX_WORK_REPORT D <include refid="queryApplicationNum"/> ) reportNum,
+		 (select count(D.id_) from WX_WORK_REPORT D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) reportWeekNum,
+		 (select count(D.id_) from T_MEETING D <include refid="queryApplicationNum"/> ) meetingNum,
+		 (select count(D.id_) from T_MEETING D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) meetingWeekNum,
+		 (select count(D.id_) from wx_work_order D <include refid="queryApplicationNum"/>) meetingTaskNum,
+		 (select count(D.id_) from wx_work_order D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) meetingTaskWeekNum,
+		 (select count(D.id_) from T_FILE D <include refid="queryApplicationNum"/>) fileNum,
+		 (select count(D.id_) from T_FILE D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) fileWeekNum,
+		 (select count(T.id_) from ga_task T LEFT JOIN ga_schedule G ON T.SCHEDULE_UID_ =G.ID_ WHERE G.ENABLE_='1' and T.COMPANY_=#{companyUid}) gaTaskNum,
+		 (select count(T.id_) from ga_task T LEFT JOIN ga_schedule G ON T.SCHEDULE_UID_ =G.ID_ where T.COMPANY_=#{companyUid} and G.ENABLE_='1' and YEARWEEK( date_format(T.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) gaTaskWeekNum,
+		 (select count(D.id_) from ga_task_record D left join ga_task G ON D.PARENT_UID_=G.ID_ LEFT JOIN WX_PROJECT P ON G.PROJ_UID_=P.ID_ where D.COMPANY_=#{companyUid}) taskReportNum,
+		 (select count(D.id_) from ga_task_record D left join ga_task G ON D.PARENT_UID_=G.ID_ LEFT JOIN WX_PROJECT P ON G.PROJ_UID_=P.ID_ where D.COMPANY_=#{companyUid} and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) taskReportWeekNum,
+		 (select count(D.id_) from t_inspection_plan D <include refid="queryApplicationNum"/> and LB_='quality') inspectionPlanNum,
+		 (select count(D.id_) from t_inspection_plan D <include refid="queryApplicationNum"/> and LB_='quality' and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) inspectionPlanWeekNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='quality' ) qualityNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='quality'  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) qualityWeekNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='safety' ) safetyNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='safety'  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) safetyWeekNum,
+		 (select count(D.id_) from T_PROCESS_CHECKOUT D <include refid="queryApplicationNum"/>) checkoutNum,
+		 (select count(D.id_) from T_PROCESS_CHECKOUT D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) checkoutWeekNum,
+		 (select count(D.id_) from t_process_task D <include refid="queryApplicationNum"/>) processTaskNum,
+		 (select count(D.id_) from t_process_task D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) processTaskWeekNum,
+		 (select count(D.id_) from t_process_task D <include refid="queryApplicationNum"/> AND D.CONSTRUCTION_STATUS_ ='3') processTaskFinshNum,
+		 (select count(D.id_) from t_process_task D <include refid="queryApplicationNum"/> AND CONSTRUCTION_STATUS_ ='3' and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) processTaskFinshWeekNum,
+		  (select count(D.id_) from t_inspection_plan D <include refid="queryApplicationNum"/> and LB_='measure') measurePlanNum,
+		 (select count(D.id_) from t_inspection_plan D <include refid="queryApplicationNum"/> and LB_='measure' and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) measurePlanWeekNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='measure' ) measureNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='measure'  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) measureWeekNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='procedure' ) procedureNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and CHECK_TYPE_='procedure'  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d') ) = YEARWEEK(now())) procedureWeekNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and (MEASURE_VALUE_ IS NOT NULL OR DESIGN_VALUE_ IS NOT NULL) ) measureValueNum,
+		 (select count(D.id_) from t_inspect_record D <include refid="queryApplicationNum"/> and (MEASURE_VALUE_ IS NOT NULL OR DESIGN_VALUE_ IS NOT NULL)  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) measureValueWeekNum,
+		 (select count(D.id_) from t_ims_purchase_order D <include refid="queryApplicationNum"/> ) materialNum,
+		 (select count(D.id_) from t_ims_purchase_order D <include refid="queryApplicationNum"/>  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) materialWeekNum,
+		 (select count(D.id_) from t_ims_in_store D <include refid="queryApplicationNum"/> ) inStoreNum,
+		 (select count(D.id_) from t_ims_in_store D <include refid="queryApplicationNum"/>  and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) inStoreWeekNum,
+		 (select count(D.id_) from t_contactsheet D <include refid="queryApplicationNum"/> ) contactsheetNum,
+			 (select count(D.id_) from t_contactsheet D <include refid="queryApplicationNum"/> and YEARWEEK( date_format(D.CREATE_TIME_,'%Y-%m-%d' ) ) = YEARWEEK(now())) contactsheetWeekNum
+	</select>
+
+	<sql id="queryApplicationInfo">
+		<choose>
+			<when test="param != null and param == 'measureValue'">
+				and (MEASURE_VALUE_ IS NOT NULL OR DESIGN_VALUE_ IS NOT NULL)
+			</when>
+			<when test="param != null and tableName == 't_inspection_plan'">
+				AND LB_=#{param}
+			</when>
+			<when test="param != null and tableName == 't_process_task'">
+				AND CONSTRUCTION_STATUS_ ='3'
+			</when>
+			<otherwise>
+				<if test="param != null and param != ''">
+					AND CHECK_TYPE_=#{param}
+				</if>
+			</otherwise>
+		</choose>
+	</sql>
+	<select id="getApplicationInfo" resultType="java.util.HashMap">
+		select COUNT(D.ID_) totalNum,P.XMMC_ projName,D.PROJ_UID_ projUid,
+		(select COUNT(ID_) from ${tableName} WHERE YEARWEEK( date_format(CREATE_TIME_,'%Y-%m-%d')) = YEARWEEK(now()) AND PROJ_UID_=D.PROJ_UID_
+		<include refid="queryApplicationInfo" /> )  weekNum
+		from ${tableName} D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+		WHERE D.COMPANY_=#{companyUid} and (P.IF_DELETE_ IS NULL OR P.IF_DELETE_='0')
+		<include refid="queryApplicationInfo" />
+		GROUP BY D.PROJ_UID_ LIMIT #{start}, #{pageSize}
+	</select>
+
+	<select id="getProgressPlanInfo" resultType="java.util.HashMap">
+		select COUNT(D.ID_) totalNum,P.XMMC_ projName,D.PROJ_UID_ projUid,
+		(select COUNT(T.ID_) from ga_task T LEFT JOIN ga_schedule G ON T.SCHEDULE_UID_ =G.ID_ WHERE G.ENABLE_='1' AND YEARWEEK( date_format(T.CREATE_TIME_,'%Y-%m-%d')) = YEARWEEK(now()) AND T.PROJ_UID_=D.PROJ_UID_)  weekNum
+		from ga_task D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_ LEFT JOIN ga_schedule G ON D.SCHEDULE_UID_ =G.ID_ WHERE G.ENABLE_='1'
+		AND D.COMPANY_=#{companyUid} and (P.IF_DELETE_ IS NULL OR P.IF_DELETE_='0') GROUP BY D.PROJ_UID_ LIMIT #{start}, #{pageSize}
+	</select>
+
+	<select id="getInspectionPlanInfo" resultType="java.util.HashMap">
+		select COUNT(D.ID_) totalNum,P.XMMC_ projName,D.PROJ_UID_ projUid,
+		(select COUNT(ID_) from t_inspection_plan WHERE LB_=#{param} AND YEARWEEK( date_format(CREATE_TIME_,'%Y-%m-%d')) = YEARWEEK(now()) AND PROJ_UID_=D.PROJ_UID_)  weekNum
+		from t_inspection_plan D LEFT JOIN WX_PROJECT P ON D.PROJ_UID_=P.ID_
+		WHERE LB_=#{param} AND D.COMPANY_=#{companyUid} and (P.IF_DELETE_ IS NULL OR P.IF_DELETE_='0') GROUP BY D.PROJ_UID_ LIMIT #{start}, #{pageSize}
+	</select>
+
+
+
+	<select id="getTaskRecord" resultType="java.util.HashMap">
+		select COUNT(D.ID_) totalNum,P.XMMC_ projName,P.ID_ projUid,
+		(select COUNT(R.ID_) from ga_task_record R left join ga_task GT ON R.PARENT_UID_=GT.ID_ WHERE YEARWEEK( date_format(R.CREATE_TIME_,'%Y-%m-%d')) = YEARWEEK(now()) AND GT.PROJ_UID_=G.PROJ_UID_
+		 )  weekNum
+		from ga_task_record D left join ga_task G ON D.PARENT_UID_=G.ID_ LEFT JOIN WX_PROJECT P ON G.PROJ_UID_=P.ID_
+		WHERE D.COMPANY_=#{companyUid} and (P.IF_DELETE_ IS NULL OR P.IF_DELETE_='0')
+		GROUP BY G.PROJ_UID_
+	</select>
+
+	<select id="getProjStatistics" resultType="java.util.HashMap">
+		select ${columnName},date_format(D.CREATE_TIME_,'%Y-%m-%d') createDate,
+		(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=D.CREATE_USER_) createUser from ${tableName} D  WHERE PROJ_UID_ =#{projUid}
+		<include refid="queryApplicationInfo" />
+		order by CREATE_TIME_ DESC  LIMIT #{start}, #{pageSize}
+	</select>
+
+	<select id="getProjStatisticsTotalCount" resultType="int">
+		select count(ID_) from ${tableName} D  WHERE PROJ_UID_ =#{projUid}
+		<include refid="queryApplicationInfo" />
+
+	</select>
+
+	<sql id="applicationCommQuery">
+
+		<if test="year != null and year != ''">
+			AND YEAR(CREATE_TIME_)=#{year}
+		</if>
+		<if test="quarter != null and quarter != ''">
+			AND quarter(CREATE_TIME_)=#{quarter}
+		</if>
+		<if test="month != null and month != ''">
+			AND MONTH(CREATE_TIME_)=#{month}
+		</if>
+	</sql>
+
+	<select id="getProjApplication" resultType="java.util.HashMap">
+		select *,(partsNum+planNum+qualityNum+safetyNum+procedureNum+measureNum+dailyNum+weekReportNum+monthReportNum+meetingNum) as totalNum from (
+		select XMMC_ projName,status_ statusName,CLASSIFY_ classify,PRINCIPAL_NAME_ principalName,CHANGE_AMOUNT_ changeAmount,
+		AMOUNT_AFTER_APPROVAL_ amountAfterApproval,DISTRICT_ district,
+		(select COUNT(ID_) from T_WORK_PART where PROJ_UID_=D.ID_ <include refid="applicationCommQuery" />) AS partsNum,
+		(select COUNT(ID_) from t_inspection_plan where PROJ_UID_=D.ID_ <include refid="applicationCommQuery" />) AS planNum,
+		(select COUNT(ID_) from t_inspect_record where PROJ_UID_=D.ID_ and CHECK_TYPE_='quality' <include refid="applicationCommQuery" />) AS qualityNum,
+		(select COUNT(ID_) from t_inspect_record where PROJ_UID_=D.ID_ and CHECK_TYPE_='safety' <include refid="applicationCommQuery" />) AS safetyNum,
+		(select COUNT(ID_) from t_inspect_record where PROJ_UID_=D.ID_ and CHECK_TYPE_='procedure' <include refid="applicationCommQuery" />) AS procedureNum,
+		(select COUNT(ID_) from t_inspect_record where PROJ_UID_=D.ID_ and CHECK_TYPE_='measure' <include refid="applicationCommQuery" />) AS measureNum,
+		(select COUNT(ID_) from WX_WORK_LOG where PROJ_UID_=D.ID_ <include refid="applicationCommQuery" />) AS dailyNum,
+		(select COUNT(ID_) from WX_WORK_REPORT where PROJ_UID_=D.ID_ and TYPE_='周报' <include refid="applicationCommQuery" />) AS weekReportNum,
+		(select COUNT(ID_) from WX_WORK_REPORT where PROJ_UID_=D.ID_ and TYPE_='月报' <include refid="applicationCommQuery" />) AS monthReportNum,
+		(select COUNT(ID_) from T_MEETING where PROJ_UID_=D.ID_ <include refid="applicationCommQuery" />) AS meetingNum
+		from wx_project D where D.COMPANY_=#{companyUid} and (IF_DELETE_ IS NULL OR IF_DELETE_='0')
+		<if test="projType != null and projType != ''">
+			AND CLASSIFY_=#{projType}
+		</if>
+		<if test="district != null and district != ''">
+			AND DISTRICT_=#{district}
+		</if>
+		) data limit #{start}, #{pageSize}
+	</select>
+</mapper>

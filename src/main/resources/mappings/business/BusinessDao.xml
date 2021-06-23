@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.construction.dao.BusinessDao">
+
+	<!--获取采购单数据-->
+	<select id="getPurchaseList" resultType="java.util.HashMap">
+		SELECT DISTINCT A.ID_ id,A.CODE_ code,A.SUBJECT_ subject,A.SUPPLIER_UID_ supplierUid,SUPPLIER_NAME_ supplier,CONTRACT_NAME_ contractName
+		FROM t_ims_purchase_order A LEFT JOIN t_ims_purchase_order_det B ON A.ID_=B.PARENT_UID_ WHERE A.PROJ_UID_ =#{projUid}
+		AND  (SELECT COUNT(ID_) FROM T_IMS_IN_STORE_DET WHERE MAT_UID_ = B.ID_ AND QUANTITY_ <![CDATA[ < ]]>B.QUANTITY_) <![CDATA[ >= ]]>0
+
+	</select>
+
+	<select id="getPurchaseDet" resultType="java.util.HashMap">
+		SELECT ID_ id,CODE_ code,NAME_ name,SPECS_ specs,MODEL_ model,QUANTITY_HT_ quantityHt,QUANTITY_ quantity, BRAND_ brand,
+		UNIT_ unit
+		FROM t_ims_purchase_order_det WHERE PARENT_UID_ =#{orderCode}
+		<if test="search != null and search != null">
+			AND NAME_ like concat('%', #{search}, '%')
+		</if>
+		 limit #{start},#{end}
+	</select>
+
+	<select id="getHistoryFileCatalog" resultType="com.jrsoft.business.modules.construction.domain.FileCatalog">
+		select ID_ id,CODE_ code,NAME_ label, PARENT_UID_ parentUid from T_DOC_DOCUMENT_ where PROJ_UID_=#{projUid} and ID_ like concat('%', #{tempUid}, '%')
+	</select>
+
+	<!--导入文档目录模板-->
+	<insert id="batchInsertCatalog" parameterType="java.util.List">
+		insert into T_DOC_DOCUMENT_ (ID_,CODE_,NAME_, PARENT_UID_,PROJ_UID_,SORT_,CREATE_USER_,CREATE_TIME_,COMPANY_)
+		values
+		<foreach collection="dataList" item="item" index="index" separator=",">
+			(#{item.id,jdbcType=VARCHAR},#{item.code},#{item.label},#{item.parentUid}, #{item.projUid},#{item.sort},
+			#{item.createUser,jdbcType=VARCHAR},#{item.createTime,jdbcType=TIMESTAMP},#{item.company,jdbcType=VARCHAR}
+			)
+		</foreach>
+	</insert>
+
+	<select id="getParentFileCatalog" resultType="com.jrsoft.business.modules.construction.domain.FileCatalog">
+		select ID_ id,CODE_ code,NAME_ label, PARENT_UID_ parentUid from T_DOC_DOCUMENT_ where PROJ_UID_=#{projUid} and ID_ like concat('%', #{parentUid}, '%') limit 1
+	</select>
+
+</mapper>

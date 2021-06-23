@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.buildManage.dao.BuildManageDao">
+
+    <!--获取楼栋信息-->
+    <select id="getBuildManageList" resultType="java.util.HashMap">
+			SELECT
+                ID_ AS id,
+                NAME_ AS name,
+                PROJ_UID_ AS projUid,
+                PARENT_UID_ AS parentUid
+            FROM
+                T_STORIED_BUILD_MANAGE
+            WHERE
+                COMPANY_ = #{ companyUid }
+                AND PROJ_UID_ = #{ projUid }
+                AND PARENT_UID_ = #{ parentUid }
+	</select>
+
+    <!--获取楼栋信息-->
+    <select id="getBuildManageListById" resultType="java.util.HashMap">
+			SELECT
+                ID_ AS id,
+                NAME_ AS name,
+                PROJ_UID_ AS projUid,
+                PARENT_UID_ AS parentUid
+            FROM
+                T_STORIED_BUILD_MANAGE
+            WHERE
+                COMPANY_ = #{ companyUid }
+                AND PROJ_UID_ = #{ projUid }
+                AND ID_ = #{ id }
+	</select>
+</mapper>

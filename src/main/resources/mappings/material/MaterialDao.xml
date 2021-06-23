@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.material.dao.MaterialDao">
+	
+	
+	<!-- 查询物料列表 -->
+	<select id="searchMaterialList" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select SUPPLIER_NAME_ supplierName,
+			ID_ id, CODE_ code, SUBJECT_ subject, CATEGORY_ category, PROJ_UID_ projUid,  
+			DATE_ date, CONTENT_ content, DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREATE_USER_ createUser,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, TAX_MONEY_ taxMoney, STATUS_ status,
+			(select USER_NAME_ from ORG_USER where ID_=a.CHECK_USER_) checkUser,
+			CONTRACT_NAME_ contractName,
+			( select count(id_) from T_IMS_IN_STORE a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+				<if test="search != null and search != ''">
+				and (a.CODE_ like concat('%', #{search}, '%') or a.SUPPLIER_NAME_ like concat('%', #{search}, '%') )
+				</if>
+				<if test="status != null and status == 0">
+					and (a.STATUS_ is null or a.STATUS_ = 0) 
+				</if>
+				<if test="status != null and status == 1">
+					and a.STATUS_ = 1
+				</if>
+			)totalCount 
+			from T_IMS_IN_STORE a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			<if test="search != null and search != ''">
+				and (a.CODE_ like concat('%', #{search}, '%') or a.SUPPLIER_NAME_ like concat('%', #{search}, '%') )
+			</if>
+			<if test="status != null and status == 0">
+				and (a.STATUS_ is null or a.STATUS_ = 0)
+			</if>
+			<if test="status != null and status == 1">
+				and a.STATUS_ = 1
+			</if>
+			order by UPDATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ desc) as Rownumver,SUPPLIER_NAME_ supplierName, 
+			ID_ id, CODE_ code, SUBJECT_ subject, CATEGORY_ category, PROJ_UID_ projUid, COUNT(1) OVER() AS totalCount, 
+			DATE_ date, CONTENT_ content, convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_USER_ createUser,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, TAX_MONEY_ taxMoney, STATUS_ status 
+			from T_IMS_IN_STORE a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			<if test="search != null and search != ''">
+				and (a.CODE_ like '%'+ #{search} +'%' or a.SUPPLIER_NAME_ like '%'+ #{search} +'%' )
+			</if>
+			<if test="status != null and status == 0">
+				and (a.STATUS_ is null or a.STATUS_ = 0)
+			</if>
+			<if test="status != null and status == 1">
+				and a.STATUS_ = 1
+			</if>
+			) data where (data.Rownumver between #{start} and #{end}) order by createDate desc
+		</if>
+	</select>
+	
+	
+	
+	<!-- 根据id查询物料 -->
+	<select id="searchMaterialById" resultMap="materialDetails">
+		select a.ID_ id, a.CODE_ code, a.PROJ_UID_ projUid,a.STATUS_ status,a.CATEGORY_ category,
+		a.DATE_ date, a.CONTENT_ content,b.CODE_  contractCode,ORDER_UID_ orderUid,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		</if>
+		a.CREATE_USER_ createUser, a.SUPPLIER_NAME_ supplierName,a.CHECK_USER_ checkUserUid,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CHECK_USER_) checkUser,
+		b.SUBJECT_ contractName, b.SUPPLIER_UID_ supplier
+		from T_IMS_IN_STORE a LEFT JOIN t_ims_purchase_order b ON a.ORDER_UID_ = b.ID_ where a.ID_ = #{id}
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="materialDetails">
+		<id property="id" column="id" />
+		<collection property="details" column="{parentId = id}"  javaType="java.util.List"  select="searchMaterialDetails" />
+	</resultMap>
+	
+	
+	<!-- 查询物料明细 -->
+	<select id="searchMaterialDetails" resultType="java.util.HashMap">
+		select B.CODE_ code, B.NAME_ name, B.SPECS_ specs, B.UNIT_ unit, B.QUANTITY_ quantity,B.BRAND_ brand,
+		a.CODE_,a.NAME_,a.SPECS_,a.MODEL_,a.QUANTITY_,a.UNIT_,a.CONTENT_ content,a.MAT_UID_,a.BRAND_,a.PASS_NUM_,a.NOTPASS_NUM_,
+		(select ID_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectUid, a.CHECK_INSPECT_UID_ checkInspectUid,
+		(select NAME_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectName, a.STATUS_ status,
+		 a.IS_PASS_
+		from T_IMS_IN_STORE_DET a LEFT JOIN t_ims_purchase_order_det B ON a.MAT_UID_ = B.ID_ where a.PARENT_UID_ = #{parentId}
+	</select>
+	
+	
+	<!-- 根据公司id查询物资库 -->
+	<select id="materialLibrary" resultType="java.util.HashMap">
+		select ID_ id, CODE_ code, NAME_ name, SPECS_ specs, UNIT_ unit, CATEGORY_UID_ categoryUid, REF_PRICE_ refPrice,
+		MIN_INVENTORY_ minInventory, DESC_ describes, CONTENT_ content, BAR_CODE_ barCode,QUANTITY_ quantity,MODEL_ model,
+		(select id_ from T_ATTACHMENT where parent_id_ = a.id_) picture, 
+		(select ID_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectUid, 
+		(select NAME_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectName 
+		from T_IMS_MAT_INFO a where COMPANY_ = #{companyUid}
+		<if test="projUid != null and projUid != ''">
+			and PROJ_UID_ = #{projUid}
+		</if>
+		<if test="search != null and search!='' ">
+			<if test="dbType == 'mysql'">
+				AND (NAME_ like concat('%', #{search}, '%') OR CODE_ like concat('%', #{search}, '%') OR CONTRACT_CODE_ like concat('%', #{search}, '%'))
+			</if>
+			<if test="dbType == 'mssql'">
+				AND (NAME_ like '%'+#{search}+'%' OR CODE_ like '%'+#{search}+'%' OR CONTRACT_CODE_ like '%'+#{search}+'%')
+			</if>
+		</if>
+		ORDER BY CREATE_TIME_ DESC
+
+	</select>
+	
+	
+	<!-- 根据id查询检查项 -->
+	<select id="searchInspectById" resultType="java.util.HashMap">
+		select ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentUid, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+		PROJ_UID_ projUid, DESIGN_VALUE_ designVaule, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample, GRADE_ grade, GRADE_LEVEL_ gradeLevel, PARENT_NAME_ parentName
+		from T_INSPECT_ITEM where PARENT_ID_ = #{id} and PROJ_UID_ = #{projUid} and LB_ = '检查项'
+	</select>
+	
+	
+	<!-- 查询下级分部，子分部，子项 -->
+	<select id="searchSubordinateInspect" resultType="java.util.HashMap" >
+		select ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentUid, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+		PROJ_UID_ projUid, DESIGN_VALUE_ designVaule, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample, GRADE_ grade, GRADE_LEVEL_ gradeLevel, PARENT_NAME_ parentName
+		from T_INSPECT_ITEM where PARENT_ID_ = #{id} and PROJ_UID_ = #{projUid} and LB_ <![CDATA[  <>  ]]> '检查项'
+	</select>
+	
+	
+	<!-- 批量更新物料检查项状态 -->
+	<update id="updateInspectByMaterialId">
+		UPDATE T_INSPECT_ITEM SET STATUS_ = 1 WHERE ID_ = #{id} and in 
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</update>
+	
+	
+	<!-- 编辑物资库 -->
+	<select id="editMaterials" resultType="java.util.HashMap"> 
+		select ID_ id, CODE_ code, NAME_ name, SPECS_ specs, UNIT_ unit, CATEGORY_UID_ categoryUid,MODEL_ model,
+		REF_PRICE_ refPrice, MIN_INVENTORY_ minInventory, DESC_ describes, CONTENT_ content, BAR_CODE_ barCode, 
+		(select ID_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectUid, 
+		(select NAME_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectName
+		from T_IMS_MAT_INFO a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 删除物资库 -->
+	<delete id="deleteMaterials">
+		delete from T_IMS_MAT_INFO where ID_ = #{id}
+	</delete>
+	
+	
+	<!-- 删除物料明细 -->
+	<delete id="deleteMaterialDetails">
+		delete from T_IMS_IN_STORE_DET where PARENT_UID_ = #{id}
+	</delete>
+	
+	
+	<!-- 删除物料 -->
+	<delete id="deleteMaterial">
+		delete from T_IMS_IN_STORE where id_ = #{id}
+	</delete>
+	
+	
+	<!-- 根据条形码id查询物资库 -->
+	<select id="searchMaterialBarCode" resultType="java.util.HashMap">
+		select ID_ id, CODE_ code, NAME_ name, SPECS_ specs, UNIT_ unit, BAR_CODE_ barCode, 
+		(select NAME_ from T_INSPECT_ITEM where id_ = a.INSPECT_UID_) inspectName 
+		from T_IMS_MAT_INFO a where BAR_CODE_ = #{barCode}
+	</select>
+	
+	
+	<!-- 查询过磅信息列表 -->
+	<select id="searchMaterialWeigh" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT * FROM (select 
+			ID_ id, POUND_CODE_ poundCode, LICENSE_PLATE_NUMBER_ licensePlateNumber, STATUS_,  
+			SUPPLIER_NAME_ supplierName, COMMODITY_NAME_ commodityName, MODEL_CODE_ modelCode, ROUGH_WEIGHT_ roughWeight, 
+			TARE_ tare, SUTTLE_ suttle, DATE_FORMAT(a.DATE_, '%Y-%m-%d') date, ACCEPTOR_NAME_ acceptorName, 
+			(	select count(id_) from from T_IMS_IN_WEIGH a where COMPANY_ = #{companyUid} 
+				<if test="status != null and status != ''">
+				and STATUS_ = #{status}
+				</if>
+				<if test="search != null and search != ''">
+					and (POUND_CODE_ like concat('%', #{search}, '%') or SUPPLIER_NAME_ like concat('%', #{search}, '%'))
+				</if>
+			)totalCount 
+			from T_IMS_IN_WEIGH a where COMPANY_ = #{companyUid}
+			
+			) data where (data.Rownumver between #{start} and #{end}) order by date desc	
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ desc) as Rownumver,
+			ID_ id, POUND_CODE_ poundCode, LICENSE_PLATE_NUMBER_ licensePlateNumber, STATUS_, COUNT(1) OVER() AS totalCount, 
+			SUPPLIER_NAME_ supplierName, COMMODITY_NAME_ commodityName, MODEL_CODE_ modelCode, ROUGH_WEIGHT_ roughWeight, 
+			TARE_ tare, SUTTLE_ suttle, convert(varchar(100),a.DATE_,23) date, ACCEPTOR_NAME_ acceptorName 
+			from T_IMS_IN_WEIGH a where COMPANY_ = #{companyUid}
+			<if test="status != null and status != ''">
+				and STATUS_ = #{status}
+			</if>
+			<if test="search != null and search != ''">
+				and (POUND_CODE_ like '%'+ #{search} +'%' or SUPPLIER_NAME_ like '%'+ #{search})
+			</if>
+			) data where (data.Rownumver between #{start} and #{end}) order by date desc
+		</if>
+		
+		
+	</select>
+	
+</mapper> 

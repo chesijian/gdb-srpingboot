@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.realNameSystem.dao.WorkerDao">
+	<!--分页查询人员列表-->
+    <select id="findPage" resultType="java.util.HashMap">
+	SELECT *
+			FROM
+				(SELECT ROW_NUMBER() OVER(ORDER BY b.CREATE_TIME_ desc) as Rownumver,
+					a.ID_ AS teamWorkerId,--班组-人员表ID
+					a.ENTRY_STATUS_ AS entryStatus,--是否进退场
+					(CASE WHEN (SELECT COUNT(ID_) FROM R_LABOR_CONTRACT WHERE WORKER_UID_=a.WORKER_UID_)&gt;0 THEN '有' ELSE '无' END ) hasContractName,--有无合同
+					a.HAS_BUY_INSURANCE_ AS hasBuyInsurance,--有无保险
+					a.IS_TEAMLEADER_ AS isTeamLeader,--是否班组长
+					a.CARD_NUMBER_ AS signCardNum,--考勤卡号
+					a.WORKE_RROLE_ AS workerType,--工种
+					a.CREATE_TIME_ as CREATE_TIME_,
+
+					b.ID_ AS workderId,--工人信息表ID
+					b.NAME_ AS workername,--工人姓名
+					b.CELLPHONE_ AS workerPhone,--工人电话
+					b.IDCARD_TYPE_ AS workerCardType,--工人证件
+					b.IDCARD_NUMBER_ AS workerCreadNum,--工人证件号码
+					(select top 1 ID_ from T_ATTACHMENT where PARENT_ID_=b.ID_)logo, 
+					ROW_NUMBER () OVER (ORDER BY a.ID_) AS rowId, --行下标
+					(SELECT COUNT(1) FROM R_PROJECT_WORKER where TEAM_UID_=#{team} and COMPANY_= #{company}
+						<if test="status != null and status != ''">
+							 and ENTRY_STATUS_= #{status}
+						</if>
+					) AS totalCount --总记录数
+					
+				FROM R_PROJECT_WORKER a LEFT JOIN R_WORKER_INFO b ON a.WORKER_UID_=b.ID_ WHERE  
+				a.TEAM_UID_=#{team} and a.COMPANY_= #{company} and a.PROJ_UID_ = #{projUid}
+					<if test="status != null and status != ''">
+						 and a.ENTRY_STATUS_= #{status}
+					</if>
+					<if test="search != null and search != ''">
+						and b.NAME_ like '%'+#{search}+'%'
+					</if>
+				) AS c
+			WHERE rowId
+			BETWEEN #{rowBegin}
+			AND #{rowEnd}
+			ORDER BY c.CREATE_TIME_ DESC
+
+	</select>
+	
+	
+	<!--分页查询人员列表(MySql)-->
+    <select id="findPageMySql" resultType="java.util.HashMap">
+	SELECT *
+			FROM
+				(SELECT a.ID_ AS teamWorkerId,
+					a.ENTRY_STATUS_ AS entryStatus,
+					a.HAS_CONTRACT_ AS hasContract,
+					a.HAS_BUY_INSURANCE_ AS hasBuyInsurance,
+					a.IS_TEAMLEADER_ AS isTeamLeader,
+					a.CARD_NUMBER_ AS signCardNum,
+					a.WORKE_RROLE_ AS workerType,
+					a.CREATE_TIME_ as CREATE_TIME_,
+
+					b.ID_ AS workderId,
+					b.NAME_ AS workername,
+					b.CELLPHONE_ AS workerPhone,
+					b.IDCARD_TYPE_ AS workerCardType,
+					b.IDCARD_NUMBER_ AS workerCreadNum,
+					(select ID_ from T_ATTACHMENT where PARENT_ID_=b.ID_ LIMIT 1)logo, 
+					(SELECT COUNT(1) FROM R_PROJECT_WORKER where TEAM_UID_=#{team} and COMPANY_= #{company}
+						<if test="status != null and status != ''">
+							 and ENTRY_STATUS_= #{status}
+						</if>
+					) AS totalCount 
+					
+				FROM R_PROJECT_WORKER a LEFT JOIN R_WORKER_INFO b ON a.WORKER_UID_=b.ID_ WHERE  
+				a.TEAM_UID_=#{team} and a.COMPANY_= #{company} and a.PROJ_UID_ = #{projUid}
+					<if test="status != null and status != ''">
+						 and a.ENTRY_STATUS_= #{status}
+					</if>
+					<if test="search != null and search != ''">
+						and b.NAME_ like concat('%', #{search}, '%')
+					</if>
+				) AS c
+			ORDER BY c.CREATE_TIME_ DESC LIMIT #{rowBegin}, #{rowEnd}
+
+	</select>
+
+	<!--获取人员Map-->
+	<select id="findByCondition" resultType="java.util.HashMap">
+		SELECT
+			a.ID_ AS teamMemberId,
+			a.CARD_NUMBER_ AS signCardNum,
+			a.ENTRY_TIME_ AS entryTime,
+			a.EXIT_TIME_ AS exitTime,
+			a.PAYROLL_BANK_CARD_NUMBER_ AS bankCardNum,
+			a.PAYROLL_BANKNAME_ AS brathBankCardName,
+			a.PAYROLL_TO_PBANKNAME_ AS bankCardName,
+			a.WORK_TYPE_  AS memberWorkType,
+			a.WORKE_RROLE_ AS memberWorkRRole,
+			a.IS_TEAMLEADER_ AS isTeamLeader,
+
+			b.ID_ AS memberId,
+			b.NAME_ AS memberName,
+			b.IDCARD_TYPE_ AS  memberCardType,
+			b.IDCARD_NUMBER_ AS  memberCardNum,
+			b.NATION_ AS memberNation,
+			b.POLITICS_ politics,
+			b.CULTURE_ culture,
+			b.MARRIAGE_ marriage, 
+			b.URGENT_LINK_MAN_ urgentLinkMan, 
+			b.URGENT_LINK_MAN_PHONE_ urgentLinkManPhone, 
+			<if test="dbType == 'mysql'">
+				DATE_FORMAT(b.BIRTHDAY_, '%Y-%m-%d')  AS memberBirthday,
+				DATE_FORMAT(b.START_DATE_, '%Y-%m-%d %H:%i')  AS memberCardBeginDate,
+				DATE_FORMAT(b.EXPIRY_DATE_, '%Y-%m-%d %H:%i') AS memberCardEndDate,
+			</if>
+			
+			<if test="dbType == 'mssql'">
+				convert(varchar(16), b.BIRTHDAY_,23)  AS memberBirthday,
+				convert(varchar(16), b.START_DATE_,120)  AS memberCardBeginDate,
+				convert(varchar(16), b.EXPIRY_DATE_,120) AS memberCardEndDate,
+			</if>
+			
+			b.GRANTORG_ AS memberCardPublish,
+			b.ADDRESS_ AS memberAdress,
+			b.CELLPHONE_ AS memberPhone 
+		FROM
+			R_PROJECT_WORKER a
+		LEFT JOIN R_WORKER_INFO b ON a.WORKER_UID_ = b.ID_
+		WHERE
+			a.ID_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="attachmentList">
+		<id property="memberId" column="memberId" />
+		<collection property="attachment" column="{parentId = memberId}"  javaType="java.util.List"  select="searchAttachmentList" />
+	</resultMap>
+	
+	<select id="searchAttachmentList" resultType="java.util.HashMap">
+		select * from T_ATTACHMENT where PARENT_ID_ = #{parentId}
+	</select>
+	
+
+	<!--获取人员Map-->
+	<select id="findByCardTypeAndCardNumber" resultType="java.util.HashMap">
+		SELECT
+		<if test="dbType == 'mysql'">
+			ID_
+		</if>
+		<if test="dbType == 'mssql'">
+			top 1 ID_
+		</if>
+		FROM
+			R_WORKER_INFO
+		WHERE
+			IDCARD_TYPE_=#{cardType} And IDCARD_NUMBER_=#{cardNum} And COMPANY_=#{company} 
+			<if test="dbType == 'mysql'">
+				LIMIT 1 
+			</if>
+	</select>
+
+	<!--获取班组人员记录-->
+	<select id="findTeamWorkByWorkUIDAndTeamUid" resultType="java.util.HashMap">
+		SELECT *
+			FROM R_PROJECT_WORKER
+			WHERE TEAM_UID_ = #{teamUid}
+		AND WORKER_UID_ = #{workerUid}
+		AND COMPANY_= #{company}
+	</select>
+
+	<!--  根据工作人员编号来查询工人信息 -->
+	<select id="queryWorkerInfoByWorkerUid" resultType="java.util.HashMap">
+		SELECT * FROM R_WORKER_INFO WHERE ID_=#{workerUid}
+	</select>
+
+	<!-- 批量删除人员 -->
+	<delete id="deleteByIds">
+		delete from R_WORKER_INFO where Id_ = #{id}
+	</delete>
+
+	<delete id="deleteRelevanceByIds">
+		delete from R_PROJECT_WORKER where WORKER_UID_  = #{id}
+	</delete>
+	
+</mapper>

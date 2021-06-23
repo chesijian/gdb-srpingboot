@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.construction.dao.MeasuredDao">
+
+	<!--获取区域图纸树数据-->
+	<!--(SELECT  COUNT(ID_) FROM  T_DRAWING WHERE  FIND_IN_SET(AREA_UID_,queryChildrenPartInfo(A.ID_))) childNum-->
+	<select id="getDrawingAreaTree" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select A.ID_ id, B.ID_ drawingId, A.NAME_ itemName, A.SORT_,A.YE_TAI_ yeTai,(select ID_ from T_ATTACHMENT where parent_id_ = B.id_ LIMIT 1) fileId,
+			B.MAP_DATA_ mapData,B.MARKER_DATA_ markerData,B.PART_NAME_ partName
+			FROM T_WORK_PART A  LEFT JOIN T_DRAWING B ON A.ID_=B.AREA_UID_ WHERE A.PROJ_UID_=#{projUid} AND A.PARENT_UID_ =#{parentUid}
+			order by sort_
+		</if>
+		<if test="dbType == 'mssql'">
+			WITH temp  AS
+			(
+			SELECT ID_,AREA_UID_ AS PARENT_UID_ FROM T_DRAWING WHERE PROJ_UID_=#{projUid}
+			UNION ALL
+			SELECT a.ID_,a.PARENT_UID_
+			FROM T_WORK_PART a
+			INNER JOIN temp  b ON b.PARENT_UID_=a.ID_
+			)
+			select * from (select ROW_NUMBER() OVER(ORDER BY A.SORT_ ) as Rownumver,
+			A.ID_ id, B.ID_ drawingId, A.NAME_ itemName, A.SORT_,(select top(1)ID_ from T_ATTACHMENT where parent_id_ = B.id_) fileId,
+			B.MAP_DATA_ mapData,B.MARKER_DATA_ markerData,B.PART_NAME_ partName,
+			(SELECT  COUNT(ID_) FROM  T_WORK_PART WHERE PARENT_UID_=A.ID_ AND ID_ IN (SELECT PARENT_UID_ FROM temp )) childCount
+			FROM T_WORK_PART A  LEFT JOIN T_DRAWING B ON A.ID_=B.AREA_UID_ WHERE A.PROJ_UID_=#{projUid} AND A.PARENT_UID_ =#{parentUid} AND A.ID_ IN (SELECT PARENT_UID_ FROM temp )
+			) data  order by sort_
+		</if>
+
+	</select>
+
+	<select id="getWorkLogStatistics" resultType="java.util.HashMap">
+		select  sum(nnt) as sales,recordDate from (
+		select 
+		<if test="dbType == 'mysql'">
+			ifnull(PM_NNT_+AM_NNT_+NIGHT_NNT_,0) nnt,
+			DATE_FORMAT(CREATE_TIME_, '%m') recordDate  
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(PM_NNT_+AM_NNT_+NIGHT_NNT_,0) nnt, 
+			month(CREATE_TIME_) recordDate 
+		</if>
+		from WX_WORK_LOG_DET
+		where PROJ_UID_=#{projUid} and year(CREATE_TIME_)= #{statisticsDate} ) a group by recordDate
+
+	</select>
+
+	<select id="getWorkLogDetail" resultType="java.util.HashMap">
+		select SUBJECT_,(SELECT TEAM_NAME_ FROM R_TEAM_MASTER WHERE ID_=D.GROUP_UID_) teamName,
+		NNT_,
+		<if test="dbType == 'mysql'">
+			ifnull(AM_NNT_,0) AM_NNT_,
+			ifnull(PM_NNT_,0) PM_NNT_,
+			ifnull(NIGHT_NNT_,0) NIGHT_NNT_,
+			ifnull(OVER_TIME_,0) OVER_TIME_,
+			DATE_FORMAT(CREATE_TIME_, '%Y%m%d') createTime 		
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(AM_NNT_,0) AM_NNT_,
+			isnull(PM_NNT_,0) PM_NNT_,
+			isnull(NIGHT_NNT_,0) NIGHT_NNT_,
+			isnull(OVER_TIME_,0) OVER_TIME_,
+			convert(varchar(100),CREATE_TIME_,112) createTime 
+		</if>
+		from WX_WORK_LOG_DET D
+		where PROJ_UID_= #{projUid} 
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') LIKE concat('%', #{statisticsDate}, '%')  
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(100),CREATE_TIME_,23) LIKE concat('%', #{statisticsDate}, '%')  
+		</if>
+		ORDER BY CREATE_TIME_ desc
+	</select>
+
+	<select id="getWorkLogSum" resultType="java.util.HashMap">
+		select (SELECT TEAM_NAME_ FROM R_TEAM_MASTER WHERE ID_=D.GROUP_UID_) team, 
+		<if test="dbType == 'mysql'">
+			ifnull(sum(over_time_),0) overTime, 
+			ifnull(sum(am_nnt_),0) amNnt, 
+			ifnull(sum(pm_nnt_),0) pmNnt, 
+			ifnull(sum(night_nnt_),0) nightNnt		
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(sum(over_time_),0) overTime, 
+			isnull(sum(am_nnt_),0) amNnt, 
+			isnull(sum(pm_nnt_),0) pmNnt, 
+			isnull(sum(night_nnt_),0) nightNnt
+		</if>
+		from WX_WORK_LOG_DET D where proj_uid_ = #{projUid} 
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') LIKE concat('%', #{statisticsDate}, '%') 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(100),CREATE_TIME_,23) LIKE concat('%', #{statisticsDate}, '%')  
+		</if>
+		group by GROUP_UID_
+	</select>
+
+	<select id="getCorpInfo" resultType="java.util.HashMap">
+		select ID_ id,NAME_ corpName,LICENSE_NUM_ licenseNum,AREA_CODE_ areaCode,ADDRESS_ address,ZIP_CODE_ zipCode,LEGAL_MAN_ legalMan,CORP_ID_ corpId,
+		ORG_UID_ orgUid,SQUARE_LOGO_ squareLogo,
+		LEGAL_MAN_DUTY_ legalManDuty,LEGAL_MAN_PROTITLE_ legalManProtitle,LEGAL_MAN_IDCARD_TYPE_ legalManIdcardType,LEGAL_MAN_IDCARD_NUMBER_ legalManIdcardNumber,
+		REG_CAPITAL_ regCapital,FACT_REG_CAPITAL_ factRegCapital,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(REGISTER_DATE_, '%Y-%m-%d') registerDate,
+			DATE_FORMAT(ESTABLISH_DATE_,'%Y-%m-%d') establishDate,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),REGISTER_DATE_,23) registerDate,
+			convert(varchar(100),ESTABLISH_DATE_,23) establishDate,
+		</if>
+		OFFICE_PHONE_ officePhone,
+		FAX_NUMBER_ faxNumber,LINK_MAN_ linkman,LINK_TEL_ linkTel,EMAIL_ email,WEBSITE_ website,REMARK_ remark,CREDIT_CODE_ creditCode,CORP_TYPE_ corpType
+		from pf_wx_corp  where ORG_UID_ = #{companyUid}
+
+	</select>
+
+	<select id="getPlanLists" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select ID_ id,SN_ sn,LB_ lb,SUBJECT_ subject,DATE_FORMAT(START_DATE_, '%Y-%m-%d') startDate,DATE_FORMAT(END_DATE_, '%Y-%m-%d') endDate,STATUS_ status,TYPE_ type,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') CREATE_TIME_,COMPILE_USER_ compileUser,CONTENT_ content,
+			(SELECT COUNT(ID_) FROM t_inspection_plan_det WHERE PARENT_UID_ =D.ID_) measureCount,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PLAN_UID_=D.ID_ AND FORM_TYPE_='measure' AND DESIGN_VALUE_ IS NOT NULL) hadMeasureCount,
+			(SELECT COUNT(ID_) FROM t_inspect_record WHERE PLAN_UID_=D.ID_ AND FORM_TYPE_='measure' AND DATA_TYPE_='inspect') rectifyCount,
+			COMPILE_DATE_ compileDate
+			from  t_inspection_plan D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+			AND D.LB_='measure'
+			<if test="status != null and status != ''">
+				and D.STATUS_ = #{status}
+			</if>
+			<if test="type != null and type != ''">
+				and D.TYPE_ = #{type}
+			</if>
+			<if test="issueStatus != null and issueStatus != ''">
+				and D.ISSUE_STATUS_ = #{issueStatus}
+			</if>
+			<if test="search != null and search!='' ">
+				and SUBJECT_ like concat(concat("%",#{search}),"%")
+			</if>
+			order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY UPDATE_TIME_ DESC) as Rownumver,SN_ sn,LB_ lb,
+			INSPECT_PART_NAME_ inspectPart,convert(varchar(16),CREATE_TIME_,23) CREATE_DATE_,RECTIFY_DEADLINE_,
+			(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) rectifyPrincipal,
+			(select TOP 1 POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid}) POSITION_,
+			from  T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+			<if test="search != null and search!='' ">
+				and (INSPECT_ITEM_NAME_ like '%'+#{search}+'%' OR INSPECT_PART_NAME_ like '%'+#{search}+'%')
+			</if>
+			) data  where (data.Rownumver between #{start} and #{end})  order by UPDATE_TIME_ desc
+		</if>
+
+	</select>
+
+	<select id="getPlansTotal" resultType="int">
+		select COUNT(ID_) from  t_inspection_plan D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<if test="status != null and status != ''">
+			and D.STATUS_ = #{status}
+		</if>
+		<if test="type != null and type != ''">
+			and D.TYPE_ = #{type}
+		</if>
+		<if test="issueStatus != null and issueStatus != ''">
+			and D.ISSUE_STATUS_ = #{issueStatus}
+		</if>
+		<if test="search != null and search!='' ">
+			<if test="dbType == 'mysql'">
+				and SUBJECT_ like concat(concat("%",#{search}),"%")
+			</if>
+			<if test="dbType == 'mssql'">
+				and SUBJECT_ like '%'+#{search}+'%'
+			</if>
+
+		</if>
+	</select>
+
+	<!--删除编制计划明细-->
+	<delete id="deletePlansDet">
+		delete from t_inspection_plan_det where PARENT_UID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</delete>
+
+	<!--删除编制计划-->
+	<delete id="deletePlans">
+		delete from t_inspection_plan where ID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</delete>
+
+	<resultMap type="java.util.HashMap" id="planResultMap">
+		<id property="id" column="ID_" />
+		<result property="dataType" column="DATA_TYPE_" />
+		<collection property="children" column="{parentId=ID_}" javaType="java.util.List"  select="queryPlanDet" />
+	</resultMap>
+	<select id="getPlanById" resultMap="planResultMap">
+		<if test="dbType == 'mysql'">
+			select ID_,SN_,LB_,SUBJECT_,DATE_FORMAT(START_DATE_, '%Y-%m-%d') START_DATE_,DATE_FORMAT(END_DATE_, '%Y-%m-%d') END_DATE_,STATUS_,TYPE_,
+			COMPILE_USER_,CONTENT_,
+			COMPILE_DATE_
+			from  t_inspection_plan D where ID_=#{id}
+		</if>
+		<if test="dbType == 'mssql'">
+			select ID_,SN_ sn,LB_ lb,SUBJECT_ subject,START_DATE_ startDate,END_DATE_ endDate,STATUS_ status,TYPE_ type,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') CREATE_TIME_,COMPILE_USER_ compileUser,CONTENT_ content,
+			COMPILE_DATE_ compileDate
+			from  t_inspection_plan D where ID_=#{id}
+		</if>
+
+	</select>
+	<select id="queryPlanDet" resultType="java.util.HashMap">
+		select D.ID_ id,D.AREA_CODE_,D.AREA_NAME_,D.INSPECT_ITEM_ inspectItem,DATE_FORMAT(D.START_DATE_, '%Y-%m-%d') START_DATE_,
+		DATE_FORMAT(D.END_DATE_, '%Y-%m-%d') END_DATE_,D.AREA_UID_,CHECK_REQUIRE_ checkRequire,D.INSPECT_ITEM_UID_ inspectItemUid,
+		D.INSPECTOR_UID_ inspectorUid,PARENT_UID_ parentUid,D.AREA_SGBW_ areaSgbw,
+		D.YE_TAI_ yeTai,
+		(SELECT SUBJECT_ FROM t_inspection_plan WHERE ID_=D.PARENT_UID_) planSubject,
+		(SELECT ID_ FROM T_DRAWING WHERE AREA_UID_ = D.AREA_UID_ LIMIT 1) drawingId,
+		(select ID_ from T_ATTACHMENT where parent_id_ = B.id_ LIMIT 1) fileId,
+		B.MAP_DATA_ mapData,B.MARKER_DATA_ markerData
+		from  t_inspection_plan_det D LEFT JOIN T_DRAWING B ON D.AREA_UID_=B.AREA_UID_ where 1=1
+
+		<if test="projUid != null and projUid != ''">
+			and (SELECT LB_ FROM t_inspection_plan WHERE ID_=D.PARENT_UID_)='measure'
+			and (SELECT PROJ_UID_ FROM t_inspection_plan WHERE ID_=D.PARENT_UID_)=#{projUid}
+		</if>
+		<if test="parentId != null and parentId != ''">
+			and D.PARENT_UID_ = #{parentId}
+		</if>
+		<if test="partUid != null and partUid != ''">
+			and (D.AREA_UID_ IS NULL OR D.AREA_UID_ = #{partUid}) AND (SELECT ISSUE_STATUS_ FROM t_inspection_plan WHERE ID_=D.PARENT_UID_)='已发布'
+		</if>
+		<choose>
+			<when test="isQueryPart">
+				GROUP BY D.AREA_UID_
+			</when>
+			<otherwise>
+				AND D.ID_ NOT IN (SELECT PLANDET_UID_ FROM t_inspect_record WHERE PLAN_UID_=D.PARENT_UID_)
+				GROUP BY D.ID_
+			</otherwise>
+		</choose>
+
+	</select>
+
+
+</mapper>

@@ -1,0 +1,1648 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.project.dao.ProjectDao">
+	
+	
+	<!-- 
+		根据当前用户查询项目列表(sqlServer)
+	 -->
+	<select id="getCurUserProjectLists" resultType="java.util.HashMap">
+		SELECT * FROM ( 
+			select ROW_NUMBER() OVER(ORDER BY xmb.CREATE_TIME_ DESC) as Rownumver,
+			xmb.ID_ id,XMMC_ proName,XMBH_ proNum,COST_ proCost,STATUS_ proStatus,START_DATE_ startDate,END_DATE_ endDate, 
+			PRINCIPAL_NAME_ principalName, (select USER_NAME_ from ORG_USER where ID_ = PRINCIPAL_ID_) principalId,
+			CONSTRUCT_UNIT_ constructUnit,OWNER_ proOwner,
+			(SELECT MAX(SORT_) FROM WX_PROJECT WHERE COMPANY_ = #{companyUid,jdbcType=VARCHAR}) maxSort,
+		<!-- /*(select name_ from PF_AREA where id_ = xmb.ADDR_PROVINCE_) province,
+			(select name_ from PF_AREA where id_ = xmb.ADDR_CITY_) city, (select name_ from PF_AREA where id_ = xmb.ADDR_COUNTY_) county,*/ -->
+			ADDR_PROVINCE_ province,ADDR_CITY_ city,ADDR_COUNTY_ county,
+			ADDR_NAME_ address,ADDR_LOCATION_ location,TAGS_ proTags,
+			(select top 1 ID_ from T_ATTACHMENT where PARENT_ID_=xmb.ID_) projectLogo,xmb.CREATE_TIME_ createTime,xmb.CREATE_USER_ createUser,
+			(select USER_NAME_ from ORG_USER where ID_=xmb.CREATE_USER_) createUserName,CREATE_TIME_,
+			(select top 1 ID_ from T_ATTACHMENT where parent_id_ = xmb.ID_) accessoryId,
+			convert(varchar(100),xmb.CREATE_TIME_,23) createDate,xmb.CONTENT_ content, COUNT(1) OVER() AS totalCount 
+			from <include refid='public.model' />
+			WX_PROJECT xmb where (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+			
+			<choose>
+		    <when test="isCompanyAdmin">
+		       and 1 = 1
+		    </when>
+		    <otherwise>
+		        and (xmb.CREATE_USER_= #{userUid} or PRINCIPAL_ID_=#{userUid} or #{userUid} in (select USER_UID_ from WX_PRO_MEMBER where PRO_UID_ =xmb.ID_) )
+		    </otherwise>
+			</choose>
+			<if test="companyUid != null">
+				and xmb.COMPANY_ = #{companyUid,jdbcType=VARCHAR}
+			</if> 
+			 
+			<if test="search != null">
+				and XMMC_ like '%'+#{search}+'%'
+			</if>
+			<if test="projStatus != null and projStatus !=''">
+				and STATUS_ =#{projStatus}
+			</if> 
+			) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+	</select>
+	
+	
+	<!-- 获取项目列表(MySql) -->
+	<select id="searchProjList" resultType="java.util.HashMap">
+		SELECT * FROM ( 
+			select xmb.ID_ id,XMMC_ proName,XMBH_ proNum,COST_ proCost,STATUS_ proStatus,START_DATE_ startDate,END_DATE_ endDate,
+			PRINCIPAL_NAME_ principalName,
+			CONSTRUCT_UNIT_ constructUnit,OWNER_ proOwner,CLASSIFY_ classify,PROJ_PURPOSE_ projPurpose,
+			(SELECT MAX(SORT_) FROM WX_PROJECT WHERE COMPANY_ = #{companyUid}) maxSort,
+			ADDR_PROVINCE_ province,ADDR_CITY_ city,ADDR_COUNTY_ county,
+			ADDR_NAME_ address,ADDR_LOCATION_ location,TAGS_ proTags,
+			(select ID_ from T_ATTACHMENT where PARENT_ID_=xmb.ID_  LIMIT 1) projectLogo,xmb.CREATE_TIME_ createTime,xmb.CREATE_USER_ createUser,
+			(select USER_NAME_ from ORG_USER where ID_=xmb.CREATE_USER_) createUserName,CREATE_TIME_,
+			(select ID_ from T_ATTACHMENT where parent_id_ = xmb.ID_  LIMIT 1) accessoryId,
+			DATE_FORMAT(xmb.CREATE_TIME_, '%Y-%m-%d %H:%i:%s') createDate, 
+			xmb.CONTENT_ content, 
+			(	select count(id_) from WX_PROJECT xmb where (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+				<choose>
+			    <when test="isCompanyAdmin">
+			       and 1 = 1
+			    </when>
+			    <otherwise>
+			        and (xmb.CREATE_USER_= #{userUid} or PRINCIPAL_ID_=#{userUid} or #{userUid} in (select USER_UID_ from WX_PRO_MEMBER where PRO_UID_ =xmb.ID_) )
+			    </otherwise>
+				</choose>
+				<if test="companyUid != null">
+					and xmb.COMPANY_ = #{companyUid,jdbcType=VARCHAR}
+				</if> 
+				<if test="search != null">
+					and XMMC_ like concat('%', #{search}, '%')
+				</if>
+				<if test="projStatus != null and projStatus !=''">
+					and CLASSIFY_ =#{projStatus}
+				</if> 
+			) totalCount 
+			from <include refid='public.model' />
+			WX_PROJECT xmb where (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+			<choose>
+			    <when test="isCompanyAdmin">
+			       and 1 = 1
+			    </when>
+			    <otherwise>
+			        and (xmb.CREATE_USER_= #{userUid} or PRINCIPAL_ID_=#{userUid} or #{userUid} in (select USER_UID_ from WX_PRO_MEMBER where PRO_UID_ =xmb.ID_) )
+			    </otherwise>
+			</choose>
+			<if test="companyUid != null">
+				and xmb.COMPANY_ = #{companyUid,jdbcType=VARCHAR}
+			</if> 
+			<if test="search != null">
+				and XMMC_ like concat('%', #{search}, '%')
+			</if>
+			<if test="projStatus != null and projStatus !=''">
+				and CLASSIFY_ =#{projStatus}
+			</if> 
+			) data order by CREATE_TIME_ desc LIMIT  #{start}, #{pageSize}
+	</select>	
+	
+	
+	<!-- SqlServer -->
+	<resultMap type="java.util.HashMap" id="projMap">
+		<id property="id" column="ID_" />
+		<result property="XMMC_" column="XMMC_" />
+		<result property="XMBH_" column="XMBH_" />
+		<result property="COST_" column="COST_" />
+		<result property="STATUS_" column="STATUS_" />
+		<result property="START_DATE_" column="START_DATE_" />
+		<result property="END_DATE_" column="END_DATE_" />
+		<result property="COVERED_AREA_" column="COVERED_AREA_" />
+		<result property="PRINCIPAL_NAME_" column="PRINCIPAL_NAME_" />
+		<result property="PRINCIPAL_ID_" column="PRINCIPAL_ID_" />
+		<result property="CONSTRUCT_UNIT_" column="CONSTRUCT_UNIT_" />
+		<result property="OWNER_" column="OWNER_" />
+		<result property="ADDR_PROVINCE_" column="ADDR_PROVINCE_" />
+		<result property="ADDR_CITY_" column="ADDR_CITY_" />
+		<result property="ADDR_COUNTY_" column="ADDR_COUNTY_" />
+		<result property="ADDR_NAME_" column="ADDR_NAME_" />
+		<result property="ADDR_LOCATION_" column="ADDR_LOCATION_" />
+		<result property="TAGS_" column="TAGS_" />
+		<result property="BUILDER_LICENSES_" column="BUILDER_LICENSES_" />
+
+		<collection property="member" column="{parentId = ID_}"  javaType="java.util.List"  select="selectMenberById" />
+		<collection property="unit" column="{parentId = ID_}"  javaType="java.util.List"  select="selectUnitById" />
+		<collection property="childProj" column="{parentId = ID_}"  javaType="java.util.List"  select="selectChildProjById" />
+	</resultMap>
+	
+	
+	<!-- mySql -->
+	<resultMap type="java.util.HashMap" id="projMapMySql">
+		<id property="id" column="ID_" />
+		<result property="XMMC_" column="XMMC_" />
+		<result property="XMBH_" column="XMBH_" />
+		<result property="COST_" column="COST_" />
+		<result property="STATUS_" column="STATUS_" />
+		<result property="START_DATE_" column="START_DATE_" />
+		<result property="END_DATE_" column="END_DATE_" />
+		<result property="COVERED_AREA_" column="COVERED_AREA_" />
+		<result property="PRINCIPAL_NAME_" column="PRINCIPAL_NAME_" />
+		<result property="PRINCIPAL_ID_" column="PRINCIPAL_ID_" />
+		<result property="CONSTRUCT_UNIT_" column="CONSTRUCT_UNIT_" />
+		<result property="OWNER_" column="OWNER_" />
+		<result property="ADDR_PROVINCE_" column="ADDR_PROVINCE_" />
+		<result property="ADDR_CITY_" column="ADDR_CITY_" />
+		<result property="ADDR_COUNTY_" column="ADDR_COUNTY_" />
+		<result property="ADDR_NAME_" column="ADDR_NAME_" />
+		<result property="ADDR_LOCATION_" column="ADDR_LOCATION_" />
+		<result property="TAGS_" column="TAGS_" />
+		<result property="PUSH_STATUS_" column="PUSH_STATUS_" />
+		<result property="BUILDER_LICENSES_" column="BUILDER_LICENSES_" />
+		<collection property="member" column="{parentId = ID_}"  javaType="java.util.List"  select="selectMenberById" />
+		<collection property="unit" column="{parentId = ID_}"  javaType="java.util.List"  select="selectUnitByIdMySql" />
+		<collection property="childProj" column="{parentId = ID_}"  javaType="java.util.List"  select="selectChildProjById" />
+	</resultMap>
+
+	
+	<!--  查询项目的成员 -->
+	<select id="selectMenberById" resultType="java.util.HashMap">
+		select USER_NAME_ userName,USER_UID_ id, POSITION_ position,ROLE_ID_ roleIds,(select picture_ from org_user where id_ = a.USER_UID_) picture from WX_PRO_MEMBER a where PRO_UID_=#{parentId}
+	</select>
+	
+	
+	<!-- 查询参建单位 -->
+	<select id="selectUnitById" resultType="java.util.HashMap" >
+		select ID_, UNIT_NAME_, CREDIT_CODE_, UNIT_TYPE_, PROJ_UID_, SORT_,
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, CREDIT_CODE_, 
+		BANK_CODE_, BANK_NAME_, BANK_NUMBER_, BANK_LINKNUMBER_, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, 
+		convert(varchar(100),ENTRY_TIME_,120) ENTRY_TIME_, convert(varchar(100),EXIT_TIME_,120) EXIT_TIME_ 
+		from T_UNIT a where proj_uid_ = #{parentId} order by SORT_
+	</select>
+	
+	<!-- 查询参建单位MySql -->
+	<select id="selectUnitByIdMySql" resultType="java.util.HashMap" >
+		select ID_, UNIT_NAME_, CREDIT_CODE_, UNIT_TYPE_, PROJ_UID_, SORT_,
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREDIT_CODE_, 
+		BANK_CODE_, BANK_NAME_, BANK_NUMBER_, BANK_LINKNUMBER_,
+		DATE_FORMAT(ENTRY_TIME_, '%Y-%m-%d %H:%i:%s') ENTRY_TIME_, DATE_FORMAT(EXIT_TIME_, '%Y-%m-%d %H:%i:%s') EXIT_TIME_, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser
+		from T_UNIT a where proj_uid_ = #{parentId} order by SORT_
+	</select>
+
+	<!-- 查询工程名称列表 -->
+	<select id="selectChildProjById" resultType="java.util.HashMap" >
+		select ID_ id, PRJ_NAME_, BUILDER_LICENSE_NUM_ from T_PROJ_CHILD  where PARENT_UID_ = #{parentId} order by SORT_
+	</select>
+
+	
+	<!-- 根据id获取项目数据 -->
+	<select id="getProjectById" resultMap="projMap">
+		select ID_,XMMC_,XMBH_,COST_,STATUS_,START_DATE_,END_DATE_,COVERED_AREA_, DATEDIFF (day,START_DATE_,END_DATE_) sj,
+		PRINCIPAL_NAME_,PRINCIPAL_ID_,
+		CONSTRUCT_UNIT_,OWNER_,ADDR_PROVINCE_,PROJ_TYPE_,BUILDER_LICENSES_, 
+		ADDR_CITY_,ADDR_COUNTY_,ADDR_NAME_,ADDR_LOCATION_,TAGS_,CONTENT_, REQUIRE_TIME_,BUILD_CORP_NAME_,
+		CONSTRUCTION_, LAND_LICENCE_, PROGRAMME_LICENCE_, REFERENCE_, INVESTMENT_, SCALE_, BUILD_CORP_CODE_, 
+		BUILD_PLAN_NUM_, PRJ_PLAN_NUM_, AREA_CODE_, BUILDING_LENGTH_, APPROVAL_NUM_, PRJ_SIZE_, PROPERTY_NUM_, 
+		FUNCTION_NUM_, SCORE_, SUBJECT_, PUSH_STATUS_, 
+		RANK_, LENGTH_, USE_, CLASSIFY_, (select USER_NAME_ from ORG_USER where ID_=xmb.LINKMAN_) linkManName, LINKMAN_, LINKMAN_PHONE_, 
+		(select top 1 ID_ from T_ATTACHMENT where PARENT_ID_=xmb.ID_) projectLogo 
+		from <include refid='public.model' />
+		WX_PROJECT xmb where xmb.ID_= #{id}
+	</select>
+	
+	
+	<!-- 根据id获取项目数据 -->
+	<select id="searchProjDetailsById" resultMap="projMapMySql">
+		select ID_,XMMC_,XMBH_,COST_,STATUS_,START_DATE_,END_DATE_,COVERED_AREA_, TIMESTAMPDIFF (day,START_DATE_,END_DATE_) sj,
+		PRINCIPAL_NAME_, PRINCIPAL_ID_,REMARK_,CHANGE_AMOUNT_,AMOUNT_AFTER_APPROVAL_,RETROFIT_CONTENT_,DISTRICT_,
+		DEMAND_ORGANIZATION_,DESIGN_,COSTING_,PURCHASE_,BUSINESS_REQUIREMENTS_,
+		CONSTRUCT_UNIT_,OWNER_,ADDR_PROVINCE_,PROJ_TYPE_,BUILDER_LICENSES_,
+		ADDR_CITY_,ADDR_COUNTY_,ADDR_NAME_,ADDR_LOCATION_,TAGS_,CONTENT_, REQUIRE_TIME_, BUILD_CORP_NAME_, 
+		BUILD_CORP_CODE_, BUILD_PLAN_NUM_, PRJ_PLAN_NUM_, AREA_CODE_, BUILDING_LENGTH_, APPROVAL_NUM_, 
+		APPROVAL_LEVEL_NUM_, PRJ_SIZE_, PROPERTY_NUM_, FUNCTION_NUM_, SCORE_, SUBJECT_, PUSH_STATUS_, 
+		CONSTRUCTION_, LAND_LICENCE_, PROGRAMME_LICENCE_, REFERENCE_, INVESTMENT_, SCALE_,PUSH_STATUS_,
+		RANK_, LENGTH_, USE_, CLASSIFY_, LINKMAN_, LINKMAN_PHONE_,
+		(select ID_ from T_ATTACHMENT where PARENT_ID_=xmb.ID_ limit 1) projectLogo, PROJ_PURPOSE_ 
+		from <include refid='public.model' />
+		WX_PROJECT xmb where xmb.ID_= #{id}
+	</select>
+	
+	
+	<!-- 根据项目id获取项目负责人与成员和班组负责人 -->
+	<select id="getMemberByProjUid" resultType="java.util.HashMap">
+		<!-- 查询项目负责人 -->
+		select 
+		<if test="dbType == 'mysql'">
+			(select c.position_name_ from ORG_POSITION_USER b 
+			left join ORG_POSITION c on c.id_ = b.position_uid_ where b.user_uid_ = a.principal_id_) position, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(3500),stuff((select ',' + c.position_name_  from ORG_POSITION_USER b left join ORG_POSITION c on c.id_ = b.position_uid_ where b.user_uid_ = a.principal_id_ for xml path('')),1,1,'')) position, 
+		</if>
+		a.id_ id, (select id_ from org_user where id_ = a.principal_id_) userId, 
+		(select user_name_ from org_user where id_ = a.principal_id_) userName, 
+		(select picture_ from org_user where id_ = a.principal_id_) picture, #{search} search, #{dbType} dbType  
+		from wx_project a 
+		where a.id_  = #{id}
+		<if test="search != null and search != ''">
+			<if test="dbType == 'mysql'">
+				and (select user_name_ from org_user where id_ = a.principal_id_) like concat('%', #{search}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and (select user_name_ from org_user where id_ = a.principal_id_) like ('%'+#{search}+'%')
+			</if>
+		</if>
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="principalAndTeamMap" >
+		<id property="id" column="id" />
+		<id property="search" column="search" />
+		<id property="dbType" column="dbType" />
+		<collection property="member" column="{projUid = id, search = search, dbType = dbType}"  javaType="java.util.List"  select="selectPrincipal" />
+	</resultMap>
+	
+	
+	<select id="selectPrincipal" resultType="java.util.HashMap" >
+		select POSITION_ position,
+		a.user_name_ userName, a.user_uid_ id, a.pro_uid_ projUid,  
+		(select picture_ from org_user where id_ = a.user_uid_) picture
+		from WX_PRO_MEMBER a 
+		where pro_uid_ = #{projUid}
+		<if test="search != null and search != ''">
+			<if test="dbType == 'mysql'">
+				and a.user_name_ like concat('%', #{search}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and a.user_name_ like ('%'+#{search}+'%')
+			</if>
+		</if>
+	</select>
+
+	<!-- 根据项目编号和搜索关键字来查询 -->
+	<select id="getMemberByProjUidAndSearch" resultType="java.util.HashMap">
+		select POSITION_ position,
+		a.user_name_ userName, a.user_uid_ id, a.pro_uid_ projUid,
+		(select picture_ from org_user where id_ = a.user_uid_) picture,
+		(select depart_name_ from org_depart where id_=u.depart_uid_) depart_name_,
+		(select position_name_ from org_position where id_=u.POSITION_UID_) position_name_
+		from WX_PRO_MEMBER a left join org_position_user u on a.user_uid_=u.user_uid_ where a.pro_uid_ = #{projUid}
+		<if test="search != null and search != ''">
+			<if test="dbType == 'mysql'">
+				and a.user_name_ like concat('%', #{search}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and a.user_name_ like ('%'+#{search}+'%')
+			</if>
+		</if>
+	</select>
+
+	<!-- 根据当前用户查询班组列表 -->
+	<!-- <select id="searchTreamGroup" resultType="java.util.HashMap">
+		SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver, 
+		ID_, TEAM_GROUP_ name, PRINCIPAL_, PERSON_NUMBER_ personNumber, CREATE_TIME_, CREATE_USER_ 
+		from T_CONSTRUCTION_GROUP a
+		where (id_ in (select parent_uid_ from T_CONSTRUCTION_GROUP_DET where user_uid_ = #{userUid}) 
+		or create_user_ = #{userUid} or PRINCIPAL_ = #{userUid}) and proj_uid_ = #{projUid}
+		<if test="search != null and search != ''">
+			and (TEAM_GROUP_ like '%'+#{search}+'%' or PRINCIPAL_ = (select USER_NAME_ from ORG_USER where ID_=a.PRINCIPAL_))
+		</if>
+		and COMPANY_ = #{companyUid}
+		) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+	</select> -->
+	<select id="searchTreamGroup" resultType="java.util.HashMap">
+		SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver, 
+		ID_ id, TEAM_NAME_ name, TEAM_LEADER_NAME_ principal, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, 
+		CREATE_TIME_, TEAM_LEADER_PHONE_ phone
+		from R_TEAM_MASTER a where and proj_uid_ = #{projUid}
+		<if test="search != null and search != ''">
+			and (TEAM_LEADER_NAME_ like '%'+#{search}+'%' or TEAM_NAME_ like '%'+#{search}+'%')
+		</if>
+		and COMPANY_ = #{companyUid}
+		) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc
+	</select>
+	
+	<!-- 根据id查询班组信息 -->
+	<select id="searchTreamGroupById" resultType="java.util.HashMap">
+		select ID_ id, TEAM_NAME_ name, TEAM_LEADER_NAME_ principal, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser,
+		convert(varchar(100),a.CREATE_TIME_,23) createTime 
+		CREATE_TIME_, TEAM_LEADER_PHONE_ phone 
+		from R_TEAM_MASTER a where a.id_ = #{id}
+	</select>
+	<!-- <select id="searchTreamGroupById" resultMap="MapList">
+		select a.ID_, a.TEAM_GROUP_, a.PRINCIPAL_ from T_CONSTRUCTION_GROUP a where a.id_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="MapList">
+		<id property="id" column="ID_" />
+		<result property="NAME_" column="NAME_" />
+		<collection property="member" column="{parentId = ID_}"  javaType="java.util.List"  select="selectTreamGroupById" />
+	</resultMap> -->
+	
+	
+	<!-- 查询班组明细 -->
+	<!-- <select id="selectTreamGroupById" resultType="java.util.HashMap">
+		select b.NAME_ userName, b.user_uid_ id, (select PICTURE_ from org_user where id_ = b.user_uid_) picture 
+		from T_CONSTRUCTION_GROUP_DET b where PARENT_UID_=#{parentId}
+	</select> -->
+	
+	
+	<!-- 根据项目id查询部位列表 -->
+	<select id="searchWorkPartList" resultType="java.util.HashMap">
+		SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY SORT_ ) as Rownumver,
+			ID_ id, NAME_ itemName, SORT_, convert(varchar(100),CREATE_TIME_,23) createTime,
+			(select top(1)MAP_DATA_ from T_DRAWING where AREA_UID_ = a.id_) mapData, YE_TAI_ yeTai, 
+			(select top(1)MARKER_DATA_ from T_DRAWING where AREA_UID_ = a.id_) markerData,
+			(select top(1)ID_ from T_DRAWING where AREA_UID_ = a.id_) drawingId, PARENT_UID_,
+			(select top(1)ID_ from T_ATTACHMENT where parent_id_ = (select top(1)ID_ from T_DRAWING where AREA_UID_ = a.id_)) fileId
+			from T_WORK_PART a where company_ = #{companyUid} and PARENT_UID_ = #{parentUid}
+			<if test="projUid != null ">
+				and PROJ_UID_  = #{projUid}
+			</if>
+			   
+			<if test="search != null and search != ''">
+				and NAME_ like '%'+ #{search} +'%'
+			</if>
+			and (IF_DELETE_ = 0 or IF_DELETE_ is null)
+		) data where (data.Rownumver between #{start} and #{end})  order by sort_
+	</select>
+	
+	
+	<!-- 根据项目id查询部位列表(MySQL) -->
+	<select id="searchWorkPartListMySql" resultType="java.util.HashMap">
+		SELECT * FROM (select 
+			ID_ id, NAME_ itemName, SORT_, DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime,LEVEL_ level,
+			(select MAP_DATA_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) mapData,YE_TAI_ yeTai, 
+			(select MARKER_DATA_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) markerData, CODE_ code, 
+			(select ID_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) drawingId, PARENT_UID_,
+			(select ID_ from T_ATTACHMENT where parent_id_ = (select ID_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) LIMIT 1) fileId
+			from T_WORK_PART a where company_ = #{companyUid} and PARENT_UID_ = #{parentUid}
+			<if test="projUid != null ">
+				and PROJ_UID_  = #{projUid}
+			</if>
+			   
+			<if test="search != null and search != ''">
+				and NAME_ like concat('%', #{search}, '%')
+			</if>
+			and (IF_DELETE_ = 0 or IF_DELETE_ is null)
+		) data order by sort_ LIMIT #{start}, #{end}
+	</select>
+
+	<select id="getWorkPartListTotalCount" resultType="int">
+		select COUNT(ID_) from T_WORK_PART a where PARENT_UID_ = #{parentUid}
+		<if test="projUid != null ">
+			and PROJ_UID_  = #{projUid}
+		</if>
+		<if test="search != null and search != ''">
+			and NAME_ like concat('%', #{search}, '%')
+		</if>
+		and (IF_DELETE_ = 0 or IF_DELETE_ is null)
+	</select>
+	
+	
+	<!-- 根据部位id查询下级部位 -->
+	<select id="searchWorkPartNext" resultType="java.util.HashMap">
+		select ID_, NAME_, SORT_, CREATE_TIME_, PARENT_UID_ from T_WORK_PART where parent_uid_ = #{id} ORDER BY sort_
+	</select>
+	
+	
+	<!-- 根据上级id查询上一级id -->
+	<select id="superior" resultType="java.util.HashMap">
+		select ID_, NAME_ from T_WORK_PART where id_ = #{superiorId}
+	</select>
+	
+	
+	<!--  根据上一级id查询 -->
+	<select id="returnSuperior" resultType="java.util.HashMap">
+		select ID_, NAME_ from T_WORK_PART where parent_uid_ = #{id}
+		<if test="projUid != null and projUid != ''">
+			and proj_uid_ = #{projUid}
+		</if>
+		ORDER BY sort_
+	</select>
+	
+	
+	<!-- 删除项目 -->
+	<update id="deleteProjectById">
+	 	update <include refid='public.model' /> WX_PROJECT set IF_DELETE_ = 1 where ID_=#{id}
+	</update>
+	
+	
+	<!-- 查询日志列表 -->
+	<select id="searchWorkLogList" resultMap="LogMapList">
+		SELECT * FROM ( select COUNT(1) OVER() AS totalCount,ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ DESC) as Rownumver,
+			a.id_, a.proj_uid_, a.subject_, a.content_, a.date_, a.am_weather_, a.pm_weather_, a.am_wdir_,a.CREATE_TIME_, 
+			a.pm_wdir_, a.am_ws, a.pm_ws, a.am_min_t_, a.pm_min_t_, a.am_max_t_, a.pm_max_t_, a.LIKE_, a.CREATE_USER_,
+			a.id_ businessKey, '/api_v1/business/project/searchLogById' businessUrl,'Journal/LogAdd' formUrl,
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName,
+			(select PICTURE_ from ORG_USER where ID_= a.CREATE_USER_) createUserLogo 
+			from WX_WORK_LOG a 
+			<!-- <if test="type == 2">
+				left join WX_WORK_LOG_USER b on b.log_uid_ = a.id_ 
+			</if> -->
+			where a.proj_uid_ = #{projUid}
+			
+			<choose>
+			    <when test="isCompanyAdmin">
+			       and 1 = 1
+			    </when>
+			    <otherwise>
+				    <choose>
+				    <!-- <when test="type == 1">
+				       and (a.id_ in (select log_uid_ FROM WX_WORK_LOG_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})
+				    </when> -->
+				    <when test="type == 2">
+				       <!-- and b.user_uid_ = #{userUid} and (select count(id_) FROM T_MSG_LOOKANDLIKE c WHERE c.user_uid_ = #{userUid} and c.BUSINESS_KEY_ = a.id_) = 0 -->
+				       and ( (select user_uid_ from WX_WORK_LOG_USER where log_uid_ = a.id_) = #{userUid} and (select count(id_) FROM T_MSG_LOOKANDLIKE c WHERE c.user_uid_ = #{userUid} and c.BUSINESS_KEY_ = a.id_) = 0)
+				    </when>
+				    <when test="type == 4">
+				       and (a.id_ in (select log_uid_ FROM WX_WORK_LOG_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})
+				    </when>
+				    
+				    <when test="type == 3">
+				    	and a.CREATE_USER_ = #{userUid}
+				    </when>
+				    <!-- <otherwise>
+				       and a.CREATE_USER_ = #{userUid}
+				    </otherwise> -->
+					</choose>
+			       
+			    </otherwise>
+			</choose>
+			<if test="search != null and search != ''">
+				and ( a.SUBJECT_ like '%'+#{search}+'%' or a.GROUP_UID_ IN (SELECT ID_ FROM T_CONSTRUCTION_GROUP WHERE TEAM_GROUP_ like '%'+#{search}+'%' )  )
+			</if>
+		) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+	</select>
+	
+	<sql id="queryWorkLogListSql">
+		<if test="type != null and type == 1">
+			<choose>
+				<when test="isCompanyAdmin">
+
+				</when>
+				<otherwise>
+					and (a.CREATE_USER_ = #{userUid} OR a.id_ in (select log_uid_ FROM WX_WORK_LOG_USER where user_uid_ = #{userUid})  )
+				</otherwise>
+			</choose>
+		</if>
+		<if test="type != null and type == 3">
+			and a.CREATE_USER_ = #{userUid}
+		</if>
+		<!-- 已我相关 -->
+		<if test="type != null and type == 4">
+			and (a.id_ in (select log_uid_ FROM WX_WORK_LOG_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})
+		</if>
+
+		<if test="search != null and search != ''">
+			and (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) like concat('%', #{search}, '%')
+		</if>
+		<if test="endDate != null and endDate != ''">
+			and DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') between #{startDate} AND #{endDate}
+		</if>
+	</sql>
+	<!-- 查询日志列表(MySql) -->
+	<select id="searchWorkLogListMySql" resultMap="LogMapList">
+		SELECT * FROM ( 
+			select a.id_, a.proj_uid_, a.subject_, a.content_, a.date_, a.am_weather_, a.pm_weather_, a.am_wdir_,a.CREATE_TIME_, 
+			a.pm_wdir_, a.am_ws, a.pm_ws, a.am_min_t_, a.pm_min_t_, a.am_max_t_, a.pm_max_t_, a.LIKE_, a.CREATE_USER_,
+			a.id_ businessKey, '/api_v1/business/project/searchLogById' businessUrl,'Journal/LogAdd' formUrl,
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, WORK_CONDITION_ workCondition, ALTERATION_CONDITION_ alterationCondition, 
+			ISSUE_ANNOUNCE_ issueAnnounce, WEEK_ week, 
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName,
+			(select PICTURE_ from ORG_USER where ID_= a.CREATE_USER_) createUserLogo, 
+			(select count(id_) from WX_WORK_LOG a where a.proj_uid_ = #{projUid}
+				<include refid="queryWorkLogListSql"/>
+			) totalCount 
+			from WX_WORK_LOG a
+			where a.proj_uid_ = #{projUid}
+			<include refid="queryWorkLogListSql"/>
+		) data order by CREATE_TIME_ desc LIMIT  #{start}, #{end}
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="LogMapList">
+		<id property="id" column="id_" />
+		<collection property="accessory" column="{parentId = id_}"  javaType="java.util.List"  select="selectLogAccessoryById" />
+		<collection property="issue" column="{parentId = id_}"  javaType="java.util.List"  select="selectIssueList" />
+	</resultMap>
+	
+	
+	<select id="selectLogAccessoryById" resultType="java.util.HashMap" >
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size 
+		from T_ATTACHMENT where parent_id_ = #{parentId}
+	</select>
+	
+	<!-- 根据id查询日志详情 -->
+	<select id="searchLogById" resultMap="Details">
+			select ID_, PROJ_UID_, SUBJECT_, CONTENT_, DATE_, AM_WEATHER_, PM_WEATHER_, AM_WDIR_, #{userUid} as passUserUid,
+			PM_WDIR_, AM_WS, PM_WS, AM_MIN_T_, PM_MIN_T_, AM_MAX_T_, PM_MAX_T_, CREATE_USER_,
+			<if test="dbType == 'mysql'">
+				CONCAT('上午',a.am_weather_ ,',下午', a.pm_weather_) subTitle,
+			</if>
+			<if test="dbType == 'mssql'">
+				('上午'+a.am_weather_ +','+ '下午'+ a.pm_weather_) subTitle, 
+			</if>
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d %H:%i:%s') createTime, a.content_ description, WORK_CONDITION_ workCondition,
+			ALTERATION_CONDITION_ alterationCondition, ISSUE_ANNOUNCE_ issueAnnounce, WEEK_ week, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) title,
+			(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ and USER_UID_ = #{userUid}) isLike,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName,
+			(select PICTURE_ from ORG_USER where ID_= a.CREATE_USER_) picture
+			from WX_WORK_LOG a WHERE ID_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="Details">
+		<id property="id" column="ID_" />
+		<collection property="member" column="{parentId = ID_}"  javaType="java.util.List"  select="selectLogDetailsById" />
+		<collection property="imgs" column="{enclosureId = ID_}"  javaType="java.util.List"  select="selectEnclosure" />
+		<collection property="personnel" column="{personnelId = ID_}"  javaType="java.util.List"  select="selectPersonnel" />
+		<collection property="passPersonnel" column="{personnelId = ID_,passUserUid = passUserUid}"  javaType="java.util.List"  select="selectPassPersonnel" />
+		<collection property="issue" column="{parentId = ID_}"  javaType="java.util.List"  select="selectIssueList" />
+	</resultMap>
+	
+	<!-- 查询施工日志明细 -->
+	<select id="selectLogDetailsById" resultType="java.util.HashMap">
+		select ID_, PROJ_UID_, LOG_UID_, SUBJECT_, STATION_INTEVAL_, TEAM_, NNT_, 
+		SCHEDULE_DESC_, SCHEDULE_, SORT_, PM_NNT_, NIGHT_NNT_, OVER_TIME_, AM_NNT_,
+		(select ID_ from T_WORK_PART where id_ = a.PART_UID_) partId,	<!-- 部位id -->
+		PART_NAME_ partName,	<!-- 部位名称 -->
+		(select id_ from R_TEAM_MASTER where id_ = a.GROUP_UID_) groupId, <!-- 班组id -->
+		(select TEAM_NAME_ from R_TEAM_MASTER where id_ = a.GROUP_UID_) groupName <!-- 班组id --> 
+		from WX_WORK_LOG_DET a where LOG_UID_ = #{parentId}
+	</select>
+	
+	<!-- 查询施工日志附件 -->
+	<select id="selectEnclosure" resultType="java.util.HashMap">
+		select ID_ id, file_name_, file_name_ fileName, suffix_, size_, CREATE_TIME_ createTime, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName 
+		from T_ATTACHMENT a where parent_id_ = #{enclosureId}
+	</select>
+	
+	<!-- 查询施工日志抄送人 -->
+	<select id="selectPersonnel" resultType="java.util.HashMap" >
+		select PROJ_UID_, LOG_UID_, USER_UID_ id, USER_NAME_ userName,
+		(select PICTURE_ from org_user where id_ = a.user_uid_) picture 
+		from WX_WORK_LOG_USER a where LOG_UID_ = #{personnelId} and TYPE_=0
+	</select>
+
+	<!-- 查询施工日志传阅人 -->
+	<select id="selectPassPersonnel" resultType="java.util.HashMap" >
+		select PROJ_UID_, LOG_UID_, USER_UID_ id, USER_NAME_ userName,
+		(select PICTURE_ from org_user where id_ = a.user_uid_) picture
+		from WX_WORK_LOG_USER a where LOG_UID_ = #{personnelId} AND TYPE_ = 1
+	</select>
+
+	
+	<!-- 查询施工签证列表 -->
+	<select id="searchVisaList" resultMap="VisaMapList">
+		<if test="dbType == 'mysql'">
+			SELECT * FROM ( select 
+			a.ID_, a.proj_uid_, a.READ_, a.LIKE_, a.sn_, a.subject_, a.visa_user_, a.amount_, a.content_, a.EXAMINE_MONEY_, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, a.CREATE_TIME_, a.CREATE_USER_,
+			a.id_ businessKey, '/api_v1/business/project/searchvisaById' businessUrl,'Visa/visaAdd' formUrl,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount,
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+			(select PICTURE_ from ORG_USER where ID_= a.CREATE_USER_) createUserLogo, a.COPY_USER_ 
+			from T_WORK_VISA a 
+			<if test="type == 2">
+				left join T_WORK_VISA_USER b on b.parent_uid_ = a.id_ 
+			</if>
+			WHERE a.COMPANY_ = #{companyUid} and a.proj_uid_ = #{projUid}
+			
+			<if test="search != null and search != ''">		<!-- 创建人, 名称, 合同 -->
+				and (a.subject_ = concat('%', #{search}, '%') or (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) = concat('%', #{search}, '%')
+					or (select type_ from T_CONTRACT where id_ = a.contract_uid_) = concat('%', #{search}, '%') )
+			</if>
+			<choose>
+			    <!-- <when test="type == 1">		全部
+					and (a.id_ in (select PARENT_UID_ FROM T_WORK_VISA_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})		    	
+			    </when> -->
+			    <when test="type == 2">		<!-- 未读 -->
+			    	and b.user_uid_ = #{userUid} and (select count(id_) FROM T_MSG_LOOKANDLIKE c WHERE c.user_uid_ = #{userUid} and c.BUSINESS_KEY_ = a.id_) = 0
+			    </when>
+			    <when test="type == 4">		<!-- 与我相关 -->
+					and (a.id_ in (select PARENT_UID_ FROM T_WORK_VISA_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})		    	
+			    </when>
+			    <when test="type == 3">		<!-- 我的 -->
+			    	and a.CREATE_USER_ = #{userUid}
+			    </when>
+			    <!-- <otherwise>			我的
+			       and a.CREATE_USER_ = #{userUid}
+			    </otherwise> -->
+			</choose> 
+			) data order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ DESC) as Rownumver, 
+			a.ID_, a.proj_uid_, a.READ_, a.LIKE_, a.sn_, a.subject_, a.visa_user_, a.amount_, a.content_, a.EXAMINE_MONEY_, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, a.CREATE_TIME_, a.CREATE_USER_,
+			a.id_ businessKey, '/api_v1/business/project/searchvisaById' businessUrl,'Visa/visaAdd' formUrl,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount,
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+			(select PICTURE_ from ORG_USER where ID_= a.CREATE_USER_) createUserLogo, a.COPY_USER_ 
+			from T_WORK_VISA a 
+			<if test="type == 2">
+				left join T_WORK_VISA_USER b on b.parent_uid_ = a.id_ 
+			</if>
+			WHERE a.COMPANY_ = #{companyUid} and a.proj_uid_ = #{projUid}
+			
+			<if test="search != null and search != ''">		<!-- 创建人, 名称, 合同 -->
+				and (a.subject_ = '%'+#{search}+'%' or (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) = '%'+#{search}+'%'
+					or (select type_ from T_CONTRACT where id_ = a.contract_uid_) = '%'+#{search}+'%' )
+			</if>
+			<choose>
+			    <!-- <when test="type == 1">		全部
+					and (a.id_ in (select PARENT_UID_ FROM T_WORK_VISA_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})		    	
+			    </when> -->
+			    <when test="type == 2">		<!-- 未读 -->
+			    	and b.user_uid_ = #{userUid} and (select count(id_) FROM T_MSG_LOOKANDLIKE c WHERE c.user_uid_ = #{userUid} and c.BUSINESS_KEY_ = a.id_) = 0
+			    </when>
+			    <when test="type == 4">		<!-- 与我相关 -->
+					and (a.id_ in (select PARENT_UID_ FROM T_WORK_VISA_USER where user_uid_ = #{userUid}) or a.create_user_ = #{userUid})		    	
+			    </when>
+			    <when test="type == 3">		<!-- 我的 -->
+			    	and a.CREATE_USER_ = #{userUid}
+			    </when>
+			    <!-- <otherwise>			我的
+			       and a.CREATE_USER_ = #{userUid}
+			    </otherwise> -->
+			</choose> 
+			) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+		</if>
+		
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="VisaMapList">
+		<id property="id" column="ID_" />
+		<collection property="accessory" column="{parentId = id_}"  javaType="java.util.List"  select="selectVisaAccessoryById" />
+	</resultMap>
+	
+	<select id="selectVisaAccessoryById" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size 
+		from T_ATTACHMENT where parent_id_ = #{parentId}
+	</select>
+	
+	
+	<!-- 根据id查询施工签证 -->
+	<select id="searchvisaById" resultMap="vistMapList">
+		select ID_, proj_uid_, sn_, subject_, visa_user_, amount_, subject_ title, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),CREATE_TIME_,23) createTime, 
+		</if>
+		content_ description,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) subTitle,
+		(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture,
+		(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ and USER_UID_ = #{userUid}) isLike,
+		content_, CREATE_USER_, VISA_DATE_, COPY_USER_, EXAMINE_MONEY_
+		from T_WORK_VISA a WHERE id_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="vistMapList">
+		<id property="id" column="ID_" />
+		<collection property="detailsVist" column="{parentUid = ID_}"  javaType="java.util.List"  select="selectDetailsViste" />
+		<collection property="principal" column="{principalId = ID_}"  javaType="java.util.List"  select="selectPrincipalViste" />
+		<collection property="imgs" column="{imgId = ID_}"  javaType="java.util.List"  select="selectEnclosureViste" />
+	</resultMap>
+	
+	<!-- 查询施工日志附件 -->
+	<select id="selectEnclosureViste" resultType="java.util.HashMap">
+		select ID_ id, file_name_, suffix_, size_ from T_ATTACHMENT where parent_id_ = #{imgId}
+	</select>
+	
+	
+	<!-- 查询施工日志明细 -->
+	<select id="selectDetailsViste" resultType="java.util.HashMap" >
+		select CODE_, NAME_, UNIT_, NUMBER_, PRICE_, AMOUNT_, CONTENT_, SORT_ 
+		from T_WORK_VISA_DET where  PARENT_UID_ = #{parentUid}
+	</select>
+	
+	<select id="selectPrincipalViste" resultType="java.util.HashMap">
+		select PROJ_UID_, USER_UID_ userId, USER_NAME_ userName, 
+		(select PICTURE_ from org_user where id_ = a.user_uid_) picture 
+		from T_WORK_VISA_USER a where PARENT_UID_ = #{principalId}
+	</select>
+	
+	
+	<!-- 删除班组 -->
+	<delete id="deleteTreamGroup">
+		DELETE FROM R_TEAM_MASTER WHERE id_ = #{id} 
+	</delete>
+	
+	
+	<!-- 根据用户ids查询用户信息 -->
+	<select id="searchUser" resultType="java.util.HashMap">
+		SELECT ID_ id, USER_NAME_ userName, PICTURE_ picture FROM ORG_USER WHERE ID_ IN
+		<foreach collection="principal" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</select>
+	
+	
+	<select id="searchWorkPartDetails" resultType="java.util.HashMap">
+		select ID_, NAME_, PARENT_UID_, SORT_ from T_WORK_PART WHERE ID_ = #{id}
+	</select>
+	
+	
+	<!--<update id="deletePartById">-->
+	 	<!--update T_WORK_PART set IF_DELETE_ = 1 where ID_=#{partId}-->
+	<!--</update>-->
+	<!--删除部位-->
+	<delete id="deletePartById">
+		delete from T_WORK_PART where ID_ =#{partId}
+	</delete>
+
+	<select id="getUserFristProj" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select D.id_ id, D.addr_location_ location, D.xmmc_ proName,B.ID_ AS userProjId,PROJ_PURPOSE_ projPurpose,
+			(select ID_ from T_ATTACHMENT where parent_id_ = D.ID_ LIMIT 1) accessoryId, CLASSIFY_ classify 
+			from WX_PROJECT D LEFT JOIN  T_USER_FRIST_PROJ B ON D.ID_=B.PROJ_UID_ where D.COMPANY_ = #{companyUid}
+			AND B.USER_UID_=#{userUid} LIMIT 1
+		</if>
+		<if test="dbType == 'mssql'">
+			select TOP 1 D.id_ id, D.addr_location_ location, D.xmmc_ projName,B.ID_ AS userProjId,PROJ_PURPOSE_ projPurpose, 
+			(select top 1 ID_ from T_ATTACHMENT where parent_id_ = D.ID_) accessoryId, CLASSIFY_ classify  
+			from WX_PROJECT D LEFT JOIN  T_USER_FRIST_PROJ B ON D.ID_=B.PROJ_UID_ where D.COMPANY_ = #{companyUid}
+			AND B.USER_UID_=#{userUid}
+		</if>
+
+	</select>
+	<!-- 查询最新项目 -->
+	<select id="getNewestProj" resultType="java.util.HashMap">
+		select 
+		<if test="dbType == 'mssql'">
+			top 1 
+		</if>
+		id_ id, addr_location_ location, xmmc_ proName, CLASSIFY_ classify, PROJ_PURPOSE_ projPurpose,
+		<if test="dbType == 'mysql'">
+			(select ID_ from T_ATTACHMENT where parent_id_ = a.ID_ LIMIT 1) accessoryId
+		</if>
+		<if test="dbType == 'mssql'">
+			(select top 1 ID_ from T_ATTACHMENT where parent_id_ = a.ID_) accessoryId
+		</if>
+		from WX_PROJECT a where COMPANY_ = #{companyUid} 
+		and (IF_DELETE_ = 0 OR IF_DELETE_ is null)
+		<choose>
+		    <when test="isCompanyAdmin">
+		       and 1 = 1
+		    </when>
+		    <otherwise>
+		       and (a.CREATE_USER_= #{userUid} or PRINCIPAL_ID_=#{userUid} or #{userUid} in (select USER_UID_ from WX_PRO_MEMBER where PRO_UID_ =a.ID_) )
+		    </otherwise>
+		</choose>
+		order by SORT_ desc
+		<if test="dbType == 'mysql'">
+			LIMIT 1		
+		</if>
+	</select>
+	
+	
+	<!-- 根据项目id查询图纸列表 -->
+	<select id="searchDrawingList" resultType="java.util.HashMap" >
+		SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ DESC) as Rownumver, 
+			ID_ id, NAME_ name, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_TIME_, PART_NAME_ partName,
+			MAP_DATA_ mapData,MARKER_DATA_ markerData,AREA_UID_ areaUid,
+			(select top(1)ID_ from T_ATTACHMENT where parent_id_ = a.id_) fileId 
+			from T_DRAWING a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			
+		<if test="search != null and search != ''">
+			and (NAME_ like '%'+ #{search} +'%' or (select name_ from T_WORK_PART where id_ = a.AREA_UID_) like '%'+ #{search} + '%')
+		</if>
+		
+		) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+	</select>
+	
+	
+	<!-- 根据id查询部位详情 -->
+	<select id="searchDrawingById" resultMap="DrawingList" >
+			select ID_ id, NAME_ name, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName,
+			<if test="dbType == 'mysql'">
+				DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate,
+			</if>
+			<if test="dbType == 'mssql'">
+				convert(varchar(100),a.CREATE_TIME_,23) createDate,
+			</if>
+			(select name_ from T_WORK_PART where id_ = a.AREA_UID_) arer
+			from T_DRAWING a where id_ = #{id} 
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="DrawingList">
+		<id property="id" column="id" />
+		<collection property="Drawing" column="{parentUid = id}"  javaType="java.util.List"  select="selectDrawing" />
+	</resultMap>
+	
+	<select id="selectDrawing" resultType="java.util.HashMap" >
+		select file_name_ fileName, suffix_ suffix, xtype_ type, size_ size 
+		from T_ATTACHMENT where parent_id_ = #{id}
+	</select>
+	
+	
+	<!-- 根据id删除部位 -->
+	<delete id="deleteDrawingById" >
+		delete from T_DRAWING where id_ = #{id}
+	</delete>
+	
+	
+	<!-- 根据id删除部位 -->
+	<delete id="deleteDrawing" >
+		delete from T_DRAWING where id_ = #{id}
+	</delete>
+	
+	
+	<delete id="deleteAttachmentByParentId">
+		delete from T_ATTACHMENT where parent_id_ = #{id}
+	</delete>
+	
+	
+	<!-- 根据项目id查询拍照列表 -->
+	<select id="searchPhotographList" resultMap="PhotographList">
+		<if test="dbType == 'mysql'">
+			SELECT * FROM (select  
+			ID_ id, PROJ_UID_ projUid, CONTENT_ content, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREATE_TIME_,PART_NAME_ partName, 
+			(select name_ from T_DRAWING where id_ = a.DRAWING_UID_) drawing	
+			from T_PROJ_PHOTO a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			
+			<if test="search != null and search != ''">
+				and  PART_NAME_ like concat('%', #{search}, '%')
+			</if>
+			
+			) data order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ desc) as Rownumver, 
+			ID_ id, PROJ_UID_ projUid, CONTENT_ content, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_TIME_,PART_NAME_ partName, 
+			(select name_ from T_DRAWING where id_ = a.DRAWING_UID_) drawing	
+			from T_PROJ_PHOTO a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			
+			<if test="search != null and search != ''">
+				and  PART_NAME_ like '%'+ #{search} +'%'
+			</if>
+			
+			) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+		</if>
+		
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="PhotographList">
+		<id property="id" column="id" />
+		<collection property="accessory" column="{parentUid = id}"  javaType="java.util.List"  select="selectPhotographAccessory" />
+	</resultMap>
+	
+	<select id="selectPhotographAccessory" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size 
+		from T_ATTACHMENT where parent_id_ = #{parentUid}
+	</select>
+	
+	
+	<!-- 根据id删除日志明细 -->
+	<delete id="deleteLogdDetailsById">
+		DELETE FROM WX_WORK_LOG_DET WHERE LOG_UID_ = #{id} 
+	</delete>
+	
+	
+	<!-- 根据id删除日志 -->
+	<delete id="deleteLogdById">
+		DELETE FROM WX_WORK_LOG WHERE ID_ = #{id} 
+	</delete>
+		
+	
+	<!-- 删除签证详情 -->	
+	<delete id="deleteVisaDetailsById">
+		DELETE FROM T_WORK_VISA_DET WHERE PARENT_UID_ = #{id} 
+	</delete>
+	
+	<!-- 删除签证 -->	
+	<delete id="deleteVisaById">
+		DELETE FROM T_WORK_VISA WHERE ID_ = #{id} 
+	</delete>
+	
+	
+	<!-- 查询工作汇报列表 -->
+	<select id="searchReportList" resultMap="reportMapList">
+		SELECT * FROM ( select COUNT(1) OVER() AS totalCount,ROW_NUMBER() OVER(ORDER BY aa.CREATE_TIME_ DESC) as Rownumver,
+		ID_ id,(select XMMC_ from WX_PROJECT where ID_ = aa.PROJ_UID_ ) project,TYPE_ type,DATA_TYPE_ dataType,
+		RECORD_DATE_ recordDate,CREATE_USER_ createUser,convert(varchar(100),aa.CREATE_TIME_,23) createTime,
+		(select USER_NAME_ FROM ORG_USER where ID_= aa.CREATE_USER_) createUserName,
+		(select PICTURE_ FROM ORG_USER where ID_= aa.CREATE_USER_) userLogo,TITLE_ title, 
+		(select count(ID_) from WX_WORK_REPORT_COMMENT where REPORT_UID_=aa.ID_) commentNum,
+		(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=aa.ID_) commentCount,
+		(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=aa.ID_) lookCount,
+		(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=aa.ID_ AND IS_LIKE_=1) likeCount,
+		convert(varchar(5000),stuff((select ',' + CONTENT_  from WX_WORK_REPORT_DET bb where bb.REPORT_UID_=aa.ID_ and bb.TYPE_=0 for xml path('')),1,1,'')) workPlan
+		from WX_WORK_REPORT aa WHERE aa.COMPANY_ = #{companyUid} and aa.PROJ_UID_ = #{projUid}
+		
+		<if test="type != null and type != ''">		<!-- 日报, 周报, 月报 -->
+			AND aa.TYPE_ = #{type}
+		</if>
+				
+		<if test="search != null and search != ''">		
+			and (select USER_NAME_ from ORG_USER where ID_=aa.CREATE_USER_) like '%'+ #{search} +'%'
+		</if>
+		
+		<choose>
+		    <when test="dataType == 1">	<!--  -->
+			 	and aa.ID_ in (select report_uid_ from WX_WORK_REPORT_USER where user_uid_ = #{userUid} ) 
+		    </when>
+		    <when test="dataType == 2">		
+		    	and aa.CREATE_USER_ = #{userUid}
+		    </when>
+		    <otherwise>		<!-- 全部 -->
+		       	and (aa.ID_ in (select report_uid_ from WX_WORK_REPORT_USER where user_uid_ = #{userUid}) or aa.CREATE_USER_ = #{userUid} ) 
+		    </otherwise>
+		</choose> 
+		) data where (data.Rownumver between #{start} and #{end})  order by createTime desc
+	</select>
+	
+	<sql id="queryReportListSql">
+		and aa.PROJ_UID_ = #{projUid}
+		<if test="type != null and type != ''">		<!-- 日报, 周报, 月报 -->
+			AND aa.TYPE_ = #{type}
+		</if>
+
+		<if test="search != null and search != ''">
+			and (select USER_NAME_ from ORG_USER where ID_=aa.CREATE_USER_) like concat('%', #{search}, '%')
+		</if>
+		<if test="endDate != null and endDate != ''">
+			and DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') between #{startDate} AND #{endDate}
+		</if>
+
+		<if test="dataType == 1">
+			and (aa.ID_ in (select report_uid_ from WX_WORK_REPORT_USER where user_uid_ = #{userUid}) or aa.APPROVER_ = #{userUid})
+		</if>
+		<if test="dataType == 2">
+			and aa.CREATE_USER_ = #{userUid}
+		</if>
+		<if test="dataType == 3"><!-- 全部 -->
+			<choose>
+				<when test="isCompanyAdmin">
+
+				</when>
+				<otherwise>
+					and (aa.ID_ in (select report_uid_ from WX_WORK_REPORT_USER where user_uid_ = #{userUid}) or aa.CREATE_USER_ = #{userUid} or aa.APPROVER_ = #{userUid})
+				</otherwise>
+			</choose>
+		</if>
+
+
+	</sql>
+	<!-- 查询工作汇报列表(MySql) -->
+	<select id="searchReportListMySql" resultMap="reportMapListMySql">
+		SELECT * FROM ( 
+		select ID_ id,(select XMMC_ from WX_PROJECT where ID_ = aa.PROJ_UID_ ) project,TYPE_ type,DATA_TYPE_ dataType,
+		RECORD_DATE_ recordDate,CREATE_USER_ createUser,DATE_FORMAT(aa.CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+		WORK_PLAN_ workPlan,WORK_RECORD_ workRecord,WORK_SUMMARY_ workSummary,
+		(select USER_NAME_ FROM ORG_USER where ID_= aa.CREATE_USER_) createUserName, APPROVER_ approver,
+		(select PICTURE_ FROM ORG_USER where ID_= aa.CREATE_USER_) userLogo,TITLE_ title, STATUS_ status,
+		(select count(ID_) from WX_WORK_REPORT_COMMENT where REPORT_UID_=aa.ID_) commentNum,
+		(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=aa.ID_) commentCount,
+		(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=aa.ID_) lookCount,
+		(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=aa.ID_ AND IS_LIKE_=1) likeCount
+		from WX_WORK_REPORT aa WHERE aa.COMPANY_ = #{companyUid}
+		<include refid="queryReportListSql"/>
+
+		) data order by createTime desc LIMIT #{start}, #{end}
+	</select>
+	<select id="getReportListTotalCount" resultType="int">
+		SELECT COUNT(ID_) FROM WX_WORK_REPORT aa WHERE aa.COMPANY_ = #{companyUid}
+		<include refid="queryReportListSql"/>
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="reportMapListMySql">
+		<result property="id" column="id" />
+		<result property="approver" column="approver" />
+		<collection property="accessory" column="{parentUid = id}"  javaType="java.util.List"  select="selectReportAccessoryMySql" />
+		<collection property="details" column="{parentUid = id}"  javaType="java.util.List"  select="selectReportDetailsMySql" />
+		<collection property="notifier" column="{parentUid = id}"  javaType="java.util.List"  select="selectReportNotifier" />
+		<collection property="approver" column="{parentUid = approver}"  javaType="java.util.List"  select="selectApprover" />
+	</resultMap>
+	
+	
+	<select id="selectApprover" resultType="java.util.HashMap" >
+		select ID_ id, user_name_ userName, picture_ picture 
+		from org_user where id_ = #{parentUid}
+	</select>
+	
+	<!-- 根据id查询工作汇报详情 -->
+	<select id="reportDetailsById" resultMap="reportMapList">
+		select ID_ id, TYPE_, RECORD_DATE_, PROJ_UID_, DATA_TYPE_,CREATE_USER_ createUser,
+		(select XMMC_ from WX_PROJECT where ID_ = a.PROJ_UID_ ) projectName,
+		convert(varchar(100),a.CREATE_TIME_,23) CREATE_TIME_, TITLE_, 
+		(select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) CREATE_USER_ 
+		from WX_WORK_REPORT a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 根据id查询工作汇报详情 (MySql)-->
+	<select id="reportDetailsByIdMySql" resultMap="reportMapListMySql">
+		select ID_ id, TYPE_, RECORD_DATE_, PROJ_UID_, DATA_TYPE_,CREATE_USER_ createUser,
+		(select XMMC_ from WX_PROJECT where ID_ = a.PROJ_UID_ ) projectName, APPROVER_ approver, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') CREATE_TIME_, TITLE_, STATUS_ status,
+		WORK_PLAN_ workPlan,WORK_RECORD_ workRecord,WORK_SUMMARY_ workSummary,CONTENT_,
+		(case (select id_ from org_user where id_ = a.APPROVER_) when #{userUid} then 1 else 0 end) flag,
+		(select USER_NAME_ FROM ORG_USER where ID_ = a.CREATE_USER_) CREATE_USER_ 
+		from WX_WORK_REPORT a where id_ = #{id}
+	</select>
+	
+	
+	<update id="updateReportStatusById">
+		UPDATE WX_WORK_REPORT SET STATUS_ = #{status} WHERE id_= #{id}
+	</update>
+	
+	
+	<resultMap type="java.util.HashMap" id="reportMapList">
+		<result property="id" column="id" />
+		<collection property="accessory" column="{parentUid = id}"  javaType="java.util.List"  select="selectReportAccessory" />
+		<collection property="details" column="{parentUid = id}"  javaType="java.util.List"  select="selectReportDetails" />
+		<collection property="notifier" column="{parentUid = id}"  javaType="java.util.List"  select="selectReportNotifier" />
+	</resultMap>
+	
+	<select id="selectReportAccessory" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size, 
+		convert(varchar(100),a.CREATE_TIME_,23) CREATE_TIME_, 
+		(select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) CREATE_USER_ 
+		from T_ATTACHMENT a where parent_id_ = #{parentUid}
+	</select>
+	
+	
+	<!-- mysql -->
+	<select id="selectReportAccessoryMySql" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') CREATE_TIME_, 
+		(select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) CREATE_USER_ 
+		from T_ATTACHMENT a where parent_id_ = #{parentUid}
+	</select>
+	
+	
+	<select id="selectReportDetails" resultType="java.util.HashMap" >
+		select ID_, REPORT_UID_, TYPE_, START_DATE_, END_DATE_, CONTENT_, 
+		convert(varchar(100),a.CREATE_TIME_,23) CREATE_TIME_, 
+		(select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) CREATE_USER_ 
+		from WX_WORK_REPORT_DET a where REPORT_UID_ = #{parentUid}
+	</select>
+	
+	
+	<!-- mysql -->
+	<select id="selectReportDetailsMySql" resultType="java.util.HashMap" >
+		select ID_, REPORT_UID_, TYPE_, START_DATE_, END_DATE_, CONTENT_, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') CREATE_TIME_, 
+		(select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) CREATE_USER_ 
+		from WX_WORK_REPORT_DET a where REPORT_UID_ = #{parentUid}
+	</select>
+	
+	
+	<select id="selectReportNotifier" resultType="java.util.HashMap">
+		select USER_NAME_ userName, USER_UID_ id, TYPE_ type,
+		(select PICTURE_ from org_user where ID_ = a.user_uid_ ) picture
+		from WX_WORK_REPORT_USER a where REPORT_UID_ = #{parentUid}
+	</select>
+	
+	
+	
+	<delete id="deleteReportById">
+		delete from WX_WORK_REPORT where id_ = #{id}
+	</delete>
+	
+	
+	<!-- 根据项目id查询现场拍照 (首页) -->
+	<select id="searchPhotographByProjUid" resultMap="PhotographList" >
+		SELECT ID_ id, PROJ_UID_ projUid, CONTENT_ content, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			<if test="dbType == 'mysql'">
+				DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d')	createDate, 
+			</if>
+			<if test="dbType == 'mssql'">
+				convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+			</if>
+			CREATE_TIME_,PART_NAME_ partName, 
+			(select name_ from T_DRAWING where id_ = a.DRAWING_UID_) drawing	
+		from T_PROJ_PHOTO a where PROJ_UID_ = #{projUid} 
+		order by CREATE_TIME_ desc
+	</select>
+	
+	
+	<!-- 根据项目id查询项目简介 (首页) -->
+	<select id="searchProjBriefByProjUid" resultMap="unitMap" >
+		select ID_ id, PROJ_TYPE_ projType, COVERED_AREA_ coveredArea, CLASSIFY_ classify, INVESTMENT_ investment,
+		COST_ cost, 
+		convert(varchar(100),a.REQUIRE_TIME_,23) requireTime, 
+		construction_ construction,
+		DATEDIFF (day,START_DATE_,END_DATE_) sj,
+		(START_DATE_ +'~'+ END_DATE_) date,
+		(select top 1 ID_ from T_ATTACHMENT where PARENT_ID_=a.ID_) projectLogo
+		from WX_PROJECT a where id_ = #{projUid}
+	</select>
+	
+	
+	<!-- 根据项目id查询项目简介 (首页)(MySql) -->
+	<select id="searchProjBriefByProjUidMySql" resultMap="unitMapMySql" >
+		select ID_ id, PROJ_TYPE_ projType, COVERED_AREA_ coveredArea, CLASSIFY_ classify, INVESTMENT_ investment,
+		COST_ cost, PROJ_PURPOSE_ projPurpose, 
+		DATE_FORMAT(a.REQUIRE_TIME_, '%Y-%m-%d') requireTime, 
+		construction_ construction,
+		TIMESTAMPDIFF (day,START_DATE_,END_DATE_) sj, 
+		CONCAT(START_DATE_ ,'~', END_DATE_) date,
+		(select ID_ from T_ATTACHMENT where PARENT_ID_=a.ID_ limit 1) projectLogo
+		from WX_PROJECT a where id_ = #{projUid}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="unitMap">
+		<result property="id" column="id" />
+		<collection property="unit" column="{parentUid = id}"  javaType="java.util.List"  select="selectUnit" />
+	</resultMap>
+	
+	<resultMap type="java.util.HashMap" id="unitMapMySql">
+		<result property="id" column="id" />
+		<collection property="unit" column="{parentUid = id}"  javaType="java.util.List"  select="selectUnitMySql" />
+	</resultMap>
+	
+	<select id="selectUnit" resultType="java.util.HashMap">
+		select ID_ id, UNIT_NAME_ unitName, CREDIT_CODE_ creditCode, UNIT_TYPE_ unitType, PROJ_UID_ projUid, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, (select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) createUserName 
+		from T_UNIT a where PROJ_UID_ = #{parentUid}
+	</select>
+	
+	<select id="selectUnitMySql" resultType="java.util.HashMap">
+		select ID_ id, UNIT_NAME_ unitName, CREDIT_CODE_ creditCode, UNIT_TYPE_ unitType, PROJ_UID_ projUid, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+		(select USER_NAME_ FROM ORG_USER where ID_= a.CREATE_USER_) createUserName 
+		from T_UNIT a where PROJ_UID_ = #{parentUid}
+	</select>
+	
+	
+	<!-- 根据用户id查询职位 -->
+	<select id="getPositionByUserIds" resultType="java.util.HashMap">
+        select (select USER_NAME_ from ORG_USER where ID_= b.user_uid_) userName, 
+		(select ID_ from ORG_USER where ID_= b.user_uid_) id, a.POSITION_NAME_ position
+		from ORG_POSITION a left join ORG_POSITION_USER b on a.id_ = b.POSITION_UID_
+		where b.user_uid_ in
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</select>
+	
+	<delete id="deletePhotographById">
+		delete from T_PROJ_PHOTO where id_ = #{id}
+	</delete>
+	
+	<delete id="deleteProjHeadPortrait">
+		delete from T_ATTACHMENT where PARENT_ID_ = #{projUid} and id_ <![CDATA[  <>  ]]> #{fileId}
+	</delete>
+	
+	
+	<select id="searchScheduleInfo" resultType="java.util.HashMap">
+		SELECT *,CASE WHEN totalWeight=0 THEN totalProgress/100 ELSE ROUND(totalProgress/totalWeight,2) END schedule FROM (
+		select 
+		<if test="dbType == 'mysql'">
+			TIMESTAMPDIFF(day, current_date(), (select DATE_FORMAT(max(END_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_)) sj,
+			(SELECT SUM(ifnull(TASK_WEIGHT_,100)) FROM GA_TASK WHERE PARENT_='0' AND SCHEDULE_UID_=a.ID_) totalWeight,
+			(SELECT SUM(ifnull(PROGRESS_,0)*ifnull(TASK_WEIGHT_,100)) FROM GA_TASK WHERE PARENT_='0' AND SCHEDULE_UID_=a.ID_) totalProgress,
+		</if>
+		<if test="dbType == 'mssql'">
+			DATEDIFF(day,CONVERT(varchar(10),GETDATE(),120),END_DATE_) sj, 
+		</if>
+		(select DATE_FORMAT(min(START_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_) planStart,
+		(select DATE_FORMAT(max(END_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_) planEnd
+		from GA_SCHEDULE a where PROJ_UID_ = #{projUid} and ENABLE_ = 1 limit 1) data
+	</select>
+	
+	
+	<!-- 新闻公告(首页) -->
+	<select id="searchHomeNews" resultType="java.util.HashMap" >
+		select 
+		<if test="dbType == 'mssql'">
+			top(5) 
+		</if>
+		a.id_ id, 
+		<if test="dbType == 'mysql'">
+			(select id_ from T_ATTACHMENT where parent_id_ = a.id_ and SUFFIX_ in ('jpg','jpeg','png','gif','bmp','pdf','JPG','JPEG','PBG','GIF,BMP') LIMIT 1) fileId
+		</if>
+		<if test="dbType == 'mssql'">
+			(select top(1)id_ from T_ATTACHMENT where parent_id_ = a.id_ and SUFFIX_ in ('jpg','jpeg','png','gif','bmp','pdf','JPG','JPEG','PBG','GIF,BMP') ) fileId
+		</if>
+		from t_news a where a.proj_uid_ = #{projUid} and a.top_ = 1 
+		order by CREATE_TIME_ desc
+		<!-- Mysql -->
+		<if test="dbType == 'mysql'">
+			LIMIT 5
+		</if>
+	</select>
+	
+	
+	<select id="searchProjectSum" resultType="Integer">
+		select 
+		<if test="dbType == 'mysql'">
+			ifnull(count(id_),0) pro 
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(count(id_),0) pro 
+		</if>
+		from WX_PROJECT where COMPANY_ = #{companyUid}
+	</select>
+
+	<!-- 根据PROJ_UID_来查询相关的人员信息 -->
+	<select id="getWorkerInfoByProjUid" resultType="java.util.Map">
+		SELECT rwi.ID_,rwi.NAME_,rwi.BIRTH_PLACE_CODE_,rwi.START_DATE_,rwi.EXPIRY_DATE_,rwi.WORKER_TYPE_,rwi.UPDATE_TIME_ FROM R_PROJECT_WORKER rpw INNER JOIN R_WORKER_INFO
+ 		rwi ON rpw.WORKER_UID_=rwi.ID_ WHERE PROJ_UID_=#{projUid}
+	</select>
+
+	<!-- 根据PROJ_UID_来查询相关的人员信息 -->
+	<select id="getHasPhotoWorkersByProjUid" resultType="java.util.Map">
+		SELECT
+			rwi.ID_,
+			rwi.NAME_,
+			rwi.BIRTH_PLACE_CODE_,
+			rwi.START_DATE_,
+			rwi.EXPIRY_DATE_,
+			rwi.WORKER_TYPE_,
+			rwi.UPDATE_TIME_ ,
+			tatt.ID_ AS WORKER_PHOTO
+		FROM
+			R_PROJECT_WORKER rpw
+			INNER JOIN R_WORKER_INFO rwi ON rpw.WORKER_UID_= rwi.ID_
+			JOIN T_ATTACHMENT tatt ON rpw.WORKER_UID_= tatt.PARENT_ID_
+		WHERE
+			PROJ_UID_=#{projUid}  AND tatt.XTYPE_ = 'photo'
+	</select>
+
+	
+	<!-- 根据公司id查询用户人数 -->
+	<select id="getUsers" resultType="Integer" >
+		select 
+		<if test="dbType == 'mysql'">
+			ifnull(count(id_),0) userCount
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(count(id_),0) userCount 
+		</if>
+		from org_user where COMPANY_ = #{companyUid}
+	</select>
+
+	
+	<!-- 根据公司id查询项目集合 -->
+	<select id="searchExtProjList" resultMap="licences" >
+		select *,
+		(SELECT USER_NAME_ FROM ORG_USER WHERE ID_= D.LINKMAN_) linkman,
+		(select CREDIT_CODE_ from pf_wx_corp where org_uid_ = #{companyUid} )creditCode
+		from wx_project D where ID_ = #{projUid} and (PUSH_STATUS_ = 0 or PUSH_STATUS_ is null or PUSH_STATUS_ = 1)
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="licences">
+		<id property="ID_" column="ID_" />
+		<collection property="licences" column="{parentId = ID_}"  javaType="java.util.List"  select="selectLicences" />
+	</resultMap>
+	
+	<select id="selectLicences" resultType="java.util.HashMap" >
+		select * from T_PROJ_CHILD where PARENT_UID_ = #{parentId} 
+	</select>
+	
+
+	<!-- 获取企业信息集合 -->
+	<select id="searchCorpList" resultType="java.util.HashMap" >
+		select * from PF_WX_CORP where CORP_ID_ = #{corpId} and (PUSH_STATUS_ = 0 or PUSH_STATUS_ is null)
+	</select>
+
+	
+	<!-- 根据项目id获取参建单位 -->
+	<select id="searchParticipationList" resultType="java.util.HashMap">
+		select *,(select PROJECT_CODE_ from wx_project where id_= a.proj_uid_) projectCode, 
+		(select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) creditCode 
+		from T_UNIT a where proj_uid_ = #{projUid} 
+		<if test="type == 1">
+			and (PUSH_STATUS_ = 0 or PUSH_STATUS_ is null) 
+		</if>
+		<if test="type == 2">
+			and PUSH_STATUS_ = 1 
+		</if>
+		order by SORT_ 
+		
+	</select>
+	
+	
+	<update id="updateProjectCode">
+		update wx_project set PROJECT_CODE_ = #{projectCode} where id_= #{id}
+	</update>
+	
+	
+	<select id="searchPayrollList" resultType="java.util.HashMap" >
+		select b.* from r_salary a left join r_salary_dateil b on b.SALARY_UID_ = a.id_ 
+		where PROJ_UID_ = #{projUid}
+	</select>
+	
+	
+	<select id="searchTeamList" resultMap="teamAttachment" >
+		select *, (select PROJECT_CODE_ from wx_project where id_= a.proj_uid_) projectCode, 
+		(select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) creditCode 
+		from r_team_master a where PROJ_UID_ = #{projUid} and (PUSH_STATUS_ = 0 or PUSH_STATUS_ is null)
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="teamAttachment">
+		<id property="ID_" column="ID_" />
+		<collection property="attachment" column="{parentId = ID_}"  javaType="java.util.List"  select="selectTeamAttachment" />
+	</resultMap>
+	
+	<select id="selectTeamAttachment" resultType="java.util.HashMap" >
+		select * from T_ATTACHMENT where parent_id_ = #{parentId}
+	</select>
+	
+	
+	<update id="updateTeamCode">
+		update r_team_master set TEAM_CODE_ = #{teamCode} where id_ = #{teamId} and PROJ_UID_ = #{projId}
+	</update>
+
+
+	<select id="updateTeamList" resultMap="teamAttachment" >
+		select *, (select PROJECT_CODE_ from wx_project where id_= a.proj_uid_) projectCode 
+		from r_team_master a where a.PROJ_UID_ = #{projUid} and PUSH_STATUS_ = 1 
+	</select>
+
+	
+	<select id="searchWorkerInfoList" resultMap="attachmentList" >
+		select a.*, (select PROJECT_CODE_ from wx_project where id_= b.proj_uid_) projectCode, b.WORKER_UID_ workerUid, 
+		(select TEAM_CODE_ from r_team_master where id_ = b.TEAM_UID_) teamCode, b.IS_TEAMLEADER_ isTeamLeader,
+		b.CARD_NUMBER_ signCardNum, b.PAYROLL_BANK_CARD_NUMBER_ bankCardNum, b.PAYROLL_BANKNAME_ brathBankCardName,
+		 b.PAYROLL_TO_PBANKNAME_ bankCardName, (select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) creditCode, 
+		 (select NAME_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) corpName 
+		from r_worker_info a left join r_project_worker b on b.WORKER_UID_ = a.id_
+		where PROJ_UID_ = #{projUid} and (a.PUSH_STATUS_ = 0 or a.PUSH_STATUS_ is null)
+	</select>
+
+	
+	<resultMap type="java.util.HashMap" id="attachmentList">
+		<id property="workerUid" column="workerUid" />
+		<collection property="attachment" column="{parentId = workerUid}"  javaType="java.util.List"  select="searchAttachmentList" />
+	</resultMap>
+	
+	<select id="searchAttachmentList" resultType="java.util.HashMap">
+		select * from T_ATTACHMENT where PARENT_ID_ = #{parentId}
+	</select>
+
+
+
+	<select id="searchEntryExitInfoList" resultType="java.util.HashMap" >
+		SELECT A.*, B.ENTRY_EXIT_FLAG_, B.ENTRY_EXIT_TIME_, B.ID_ entryId 
+		FROM ( SELECT R_P_W.ID_, R_P_W.PROJ_UID_, R_P_W.TEAM_UID_, R_P_W.WORKER_UID_, R_W_I.NAME_, R_W_I.CELLPHONE_,
+		R_W_I.IDCARD_NUMBER_, R_W_I.WORK_TYPE_CODE_, R_W_I.CREATE_TIME_,
+		(select PROJECT_CODE_ from wx_project where id_= R_P_W.proj_uid_) projectCode,
+		(select TEAM_CODE_ from r_team_master where id_ = R_P_W.TEAM_UID_) teamCode, 
+		(select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = R_P_W.COMPANY_) creditCode 
+		FROM R_PROJECT_WORKER R_P_W LEFT JOIN R_WORKER_INFO R_W_I ON (
+		R_P_W.WORKER_UID_ = R_W_I.ID_)
+			WHERE R_P_W.PROJ_UID_ = #{projUid}
+					) A
+				JOIN (
+					SELECT
+						PROJ_UID_,
+						TEAM_UID_,
+						WORKER_UID_,
+						ENTRY_EXIT_FLAG_,
+						MAX(ENTRY_EXIT_TIME_) AS ENTRY_EXIT_TIME_, 
+						ID_ 
+					FROM
+						R_USER_ENTRY_EXIT_HIS
+					WHERE  PROJ_UID_ = #{projUid}
+					and (PUSH_STATUS_ = 0 or PUSH_STATUS_ is null)
+					GROUP BY
+						PROJ_UID_,
+						TEAM_UID_,
+						WORKER_UID_,
+						ENTRY_EXIT_FLAG_, 
+						ID_
+				) B ON (
+					A.PROJ_UID_ = B.PROJ_UID_
+					AND A.TEAM_UID_ = B.TEAM_UID_
+					AND A.WORKER_UID_ = B.WORKER_UID_
+				)
+	</select>
+
+
+	<select id="updateWorkerInfoList" resultMap="attachmentList" >
+		select a.*, (select PROJECT_CODE_ from wx_project where id_= b.proj_uid_) projectCode,
+		(select NAME_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) corpName, b.WORKER_UID_ workerUid, 
+		(select TEAM_CODE_ from r_team_master where id_ = b.TEAM_UID_) teamCode, b.IS_TEAMLEADER_ isTeamLeader,
+		b.CARD_NUMBER_ signCardNum, b.PAYROLL_BANK_CARD_NUMBER_ bankCardNum, b.PAYROLL_BANKNAME_ brathBankCardName,
+		 b.PAYROLL_TO_PBANKNAME_ bankCardName, (select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) creditCode 
+		from r_worker_info a left join r_project_worker b on b.WORKER_UID_ = a.id_
+		where PROJ_UID_ = #{projUid} and a.PUSH_STATUS_ = 1 
+	</select>
+
+
+	<select id="searchUploadContractList" resultType="java.util.HashMap" >
+		SELECT
+        R_WORKER_INFO.ID_ AS WORKER_UID_,
+        R_WORKER_INFO.NAME_,
+        R_WORKER_INFO.CELLPHONE_,
+        R_WORKER_INFO.IDCARD_NUMBER_,
+        R_WORKER_INFO.WORK_TYPE_CODE_,
+        R_WORKER_INFO.CREATE_TIME_,
+        R_LABOR_CONTRACT.ID_,
+        R_LABOR_CONTRACT.CODE_,
+        R_LABOR_CONTRACT.START_TIME_,
+        R_LABOR_CONTRACT.END_TIME_,
+        R_LABOR_CONTRACT.SALARY_METHOD_,
+        R_LABOR_CONTRACT.UNIT_OF_MEASUREMENT_,
+        R_LABOR_CONTRACT.UNIT_PRICE_OF_MEASUREMENT_, 
+        R_LABOR_CONTRACT.TYPE_, 
+        (select PROJECT_CODE_ from wx_project where id_=  #{projUid}) projectCode, 
+		(select TEAM_CODE_ from r_team_master where id_ = R_PROJECT_WORKER.TEAM_UID_) teamCode, 
+		(select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = R_PROJECT_WORKER.COMPANY_) creditCode 
+        FROM
+        R_PROJECT_WORKER
+        LEFT JOIN R_WORKER_INFO ON ( R_PROJECT_WORKER.WORKER_UID_ = R_WORKER_INFO.ID_ )
+        LEFT JOIN R_LABOR_CONTRACT ON ( R_PROJECT_WORKER.PROJ_UID_ = R_LABOR_CONTRACT.PROJ_UID_ AND
+        R_PROJECT_WORKER.TEAM_UID_ = R_LABOR_CONTRACT.TEAM_UID_ AND R_PROJECT_WORKER.WORKER_UID_ =
+        R_LABOR_CONTRACT.WORKER_UID_ )
+        WHERE
+				R_PROJECT_WORKER.PROJ_UID_ = #{projUid} and R_LABOR_CONTRACT.ID_ is not null
+        AND (R_LABOR_CONTRACT.PUSH_STATUS_ = 0 or R_LABOR_CONTRACT.PUSH_STATUS_ is null)
+	</select>
+
+	
+	<update id="updateProjectPushStatus">
+		update WX_PROJECT set PUSH_STATUS_ = 2 where ID_= #{id}
+	</update>
+	
+	
+	<update id="updateParticipationPushStatus">
+		update T_UNIT set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	
+	<update id="updateTeamPushStatus">
+		update r_team_master set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	<update id="updateTeamRosterInfo">
+		update R_WORKER_INFO set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	<update id="updateEntryExitInfoPushStatus">
+		update R_USER_ENTRY_EXIT_HIS set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	<update id="updateEntryContractPushStatus">
+		update R_LABOR_CONTRACT set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	
+	<!-- 查询工资单 -->
+	<select id="searchUploadPayrollList" resultType="java.util.HashMap" >
+		select *, (select PROJECT_CODE_ from wx_project where id_=  #{projUid}) projectCode, 
+		(select CREDIT_CODE_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) creditCode, 
+		(select NAME_ from pf_wx_corp where ORG_UID_ = a.COMPANY_) corpName, 
+		(select top 1 TEAM_CODE_ from R_TEAM_MASTER where PROJ_UID_ = #{projUid} and TEAM_CODE_ is not null) teamCode 
+		from R_SALARY a where PROJ_UID_ = #{projUid} and (PUSH_STATUS_ = 0 or PUSH_STATUS_ is null)
+	</select>
+	
+	<update id="updatePayrollCode">
+		update R_SALARY set PUSH_STATUS_ = 2, SALARY_CODE_ = #{payrollCode} where ID_ = #{id}
+	</update>
+	
+	
+	<select id="searchUploadPayrollDetailList" resultType="java.util.HashMap" >
+		select a.*, b.SALARY_CODE_, b.THIRD_PAYROLL_CODE_ 
+		from R_SALARY_DATEIL a join R_SALARY b on a.SALARY_UID_ = b.id_
+		where b.proj_uid_ = #{projUid}
+	</select>
+	
+	
+	<!-- 查询是否接入平台 -->
+	<select id="searchPlatformJoint" resultType="Integer">
+		select count(id_) from T_CHECK_DEVICE where PROJ_UID_ = #{projUid}
+		and TYPE_ = #{type} and TITLE_ = #{name} and ACTIVATION_CODE_ = #{url} and DEVICE_CODE_ = #{apiKey} and PORT_ = #{port}
+	</select>
+	
+	
+	<!-- 修改企业状态 -->
+	<update id="updateCorp">
+		update PF_WX_CORP set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	
+	<!-- 修改参建单位状态 -->
+	<update id="updateParticipateInfoStatus">
+		update T_UNIT set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	
+	<!-- 修改班组状态为上传 -->
+	<update id="updateTeamInfoStatus">
+		update R_TEAM_MASTER set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	
+	<!-- 修改工人状态为已上传 -->
+	<update id="updateRosterInfoStatus">
+		update R_WORKER_INFO set PUSH_STATUS_ = 2 where ID_ = #{id}
+	</update>
+	
+	
+	<!-- 获取建设单位统一社会信用代码 -->
+	<select id="getSocietyCode" resultType="java.util.HashMap" >
+		SELECT CREDIT_CODE_ as BUILD_CORP_CODE_ FROM PF_WX_CORP WHERE ORG_UID_ = #{companyUid}
+	</select>
+	
+	
+	<!-- 查询质量与检查记录 -->
+	<select id="searchQualityAndSafetyInspect" resultType="java.util.HashMap" >
+		select (select xmmc_ from wx_project where id_ = #{projUid}) projName, SPECS_ specs, BRAND_ brand, MATERIALS_NAME_ materialsName, QUANTITY_ quantity, 
+		(SELECT CHECK_REQUIRE_ FROM T_INSPECT_ITEM WHERE ID_= a.INSPECT_ITEM_UID_) itemName, 
+		(SELECT CHECK_REQUIRE_ FROM t_process WHERE ID_= a.INSPECT_ITEM_UID_) processItemName, 
+		INSPECT_ITEM_NAME_ inspectItemName,
+		ID_ id,
+		CHECK_REQUIRE_ checkRequire, SN_ sn,
+		LB_, case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+		(select USER_NAME_ from ORG_USER where ID_= a.RECTIFY_PRINCIPAL_UID_) rectifyPrincipal, DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') rectifyDeadline, DESC_ describes  
+		from t_inspect_record a where PROJ_UID_ = #{projUid} and DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') = #{date} <!-- and DATA_TYPE_ = 'inspect' -->
+		<choose>
+			<when test="formType != null and formType=='measure'">
+				and INITIATOR_=#{userUid}
+			</when>
+			<otherwise>
+				AND CREATE_USER_=#{userUid}
+			</otherwise>
+		</choose>
+		<if test="type != null and type != ''">
+			and CHECK_TYPE_ = #{type} and FORM_TYPE_ = #{formType}
+		</if>
+		
+		<if test="formType == 'measure'">
+			and FORM_TYPE_ = #{formType} and DATA_TYPE_ = 'inspect'
+		</if>
+		<if test="formType == 'process'">
+			and FORM_TYPE_ = #{formType} AND DATA_TYPE_ <![CDATA[ <> ]]> 'completeRecord'
+		</if>
+		<if test="formType == 'material'">
+			and FORM_TYPE_ = #{formType}
+		</if>
+		
+		order by CREATE_TIME_ desc 
+	</select>
+	
+	
+	<!-- 查询物料验收清单 -->
+	<select id="searchMaterialInspect" resultType="java.util.HashMap" >
+		select b.CODE_ code, a.NAME_ name, a.SPECS_ specs, a.UNIT_ unit, a.TAX_PRICE_ taxPrice, a.PRICE_ price, 
+		a.QUANTITY_CG_ quantityCg, a.QUANTITY_ quantity, a.PASS_NUM_ passNum, a.NOTPASS_NUM_ notPassNum, a.MONEY_ money,
+		a.BRAND_ brand, b.CONTENT_ content, a.INSPECT_UID_ inspectUid, a.STATUS_ status, a.ORDER_UID_ orderUid, 
+		a.IS_PASS_ isPass, (select user_name_ from org_user where id_ = b.CHECK_USER_) checkName, 
+		(select xmmc_ from wx_project where id_ = #{projUid})projName, 
+		DATE_FORMAT(a.UPDATE_TIME_, '%Y-%m-%d %H:%i:%s') updateTime 
+		from t_ims_in_store_det a left join T_IMS_IN_STORE b on b.id_ = a.PARENT_UID_
+		where b.PROJ_UID_ = #{projUid}
+		and DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') = #{date}
+	</select>
+	
+	
+	<!-- 查询日报问题统计 -->
+	<!-- <select id="searchReportIssueList" resultMap="reportDetAndReportIssue" >
+		select ID_ id, TYPE_ type, RECORD_DATE_ recordDate, PROJ_UID_ projUid, TITLE_ title, WEEK_ week, WEATHER_ weather 
+		from wx_work_report a where id_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="reportDetAndReportIssue">
+		<id property="id" column="id" />
+		<collection property="issue" column="{parentId = id}"  javaType="java.util.List"  select="selectIssueList" />
+		<collection property="det" column="{parentId = id}"  javaType="java.util.List"  select="selectReportDet" />
+		<collection property="attachment" column="{parentId = id}"  javaType="java.util.List"  select="selectLogAccessoryById" />
+		<collection property="user" column="{parentId = id}"  javaType="java.util.List"  select="selectReportUserById" />
+	</resultMap> -->
+	
+	 <select id="selectIssueList" resultType="java.util.HashMap" >
+		select ISSUE_NAME_ issueName, FLAW_NAME_ flawName, AREA_NAME_ areaName, TROUBLE_SPOTS_ troubleSpots, 
+		HIGH_RISK_ highRisk, IN_THE_RISK_ inTheRisk, LOW_RISK_ lowRisk, CONTENT_ content 
+		from wx_work_log_issue where PARENT_UID_ = #{parentId}
+	</select>
+	
+	<!-- <select id="selectReportDet" resultType="java.util.HashMap"  >
+		select TYPE_ type, START_DATE_ startDate, END_DATE_ endDate, CONTENT_ content 
+		from wx_work_report_det a where REPORT_UID_ = #{parentId}
+	</select>
+	
+	<select id="selectReportUserById" resultType="java.util.HashMap">
+		select USER_NAME_ userName, USER_UID_ userUid, TYPE_ type,
+		(select PICTURE_ from org_user where ID_ = a.user_uid_ ) picture
+		from WX_WORK_REPORT_USER a where REPORT_UID_ = #{parentId}
+	</select> -->
+	
+	
+	<!-- 根据id删除日报问题统计 -->
+	<delete id="deleteReportIssueById">
+		delete from wx_work_report_issue where id_ = #{id} 
+	</delete>
+	
+</mapper>

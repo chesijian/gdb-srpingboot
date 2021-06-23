@@ -1,0 +1,639 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.progress.dao.ProgressDao">
+	
+	<!-- 根据项目id查询进度列表 -->
+	<select id="searchProgressList" resultType="java.util.HashMap" >
+		SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver, 
+		ID_ id, TITLE_ title, ENABLE_ enable, convert(varchar(100),a.START_DATE_,23) startDate, convert(varchar(100),a.END_DATE_,23) endDate, 
+		DURATION_ duration, convert(varchar(100),a.ACT_START_DATE_,23) actStartDate, 
+		convert(varchar(100),a.ACT_END_DATE_,23) actEndDate, ACT_DURATION_ actDuration, REMARK_ remark,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, VERSION_ version,
+		convert(varchar(100),CREATE_TIME_,23) createTime, CREATE_TIME_, PROJ_UID_ projUid, PROGRESS_ progress, 
+		(select convert(varchar(100),min(START_DATE_),23) from ga_task where SCHEDULE_UID_ = a.id_) minStartDate, 
+		(select convert(varchar(100),max(END_DATE_),23) from ga_task where SCHEDULE_UID_ = a.id_) maxStartDate 
+		from GA_SCHEDULE a where proj_uid_ = #{projUid}
+		<!-- <if test="search != null and search != ''">
+			and (TEAM_LEADER_NAME_ like '%'+#{search}+'%' or TEAM_NAME_ like '%'+#{search}+'%')
+		and COMPANY_ = #{companyUid}
+		</if> -->
+		) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc		
+	</select>
+	
+	
+	<!-- 根据项目id查询进度列表(MySql) -->
+	<select id="searchProgressListMySql" resultType="java.util.HashMap" >
+		SELECT *,datediff(endDate,startDate)+1 AS duration,
+		datediff(actEndDate,actStartDate)+1 AS actDuration,
+		CASE WHEN totalWeight=0 THEN totalProgress/100 ELSE ROUND(totalProgress/totalWeight,2) END progress FROM (
+		select 
+		ID_ id, TITLE_ title, ENABLE_ enable,REMARK_ remark,ADJUST_REASON_ adjustReason,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, VERSION_ version,
+		DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime, CREATE_TIME_, PROJ_UID_ projUid,
+		(select DATE_FORMAT(min(START_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_) startDate,
+		(select DATE_FORMAT(max(END_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_) endDate,
+		 (select DATE_FORMAT(min(ACT_START_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_) actStartDate,
+		(select DATE_FORMAT(max(ACT_END_DATE_), '%Y-%m-%d') from ga_task where SCHEDULE_UID_ = a.id_) actEndDate,
+		(SELECT SUM(ifnull(TASK_WEIGHT_,100)) FROM GA_TASK WHERE PARENT_='0' AND SCHEDULE_UID_=a.ID_) totalWeight,
+		(SELECT SUM(ifnull(PROGRESS_,0)*ifnull(TASK_WEIGHT_,100)) FROM GA_TASK WHERE PARENT_='0' AND SCHEDULE_UID_=a.ID_) totalProgress
+		from GA_SCHEDULE a where proj_uid_ = #{projUid}
+		
+		) data order by CREATE_TIME_ desc LIMIT #{start}, #{end}	
+	</select>
+	
+	
+	<!-- 根据id变更版本 -->
+	<update id="updateProgressVersions" >
+		UPDATE GA_SCHEDULE SET VERSION_ = #{versions} WHERE id_ = #{id} 
+	</update>
+	
+	
+	<!-- 根据id获取数据 -->
+	<select id="getProgressById" resultType="java.util.HashMap" >
+		select ID_ id, TITLE_ title, ENABLE_ enable, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.START_DATE_,'%Y-%m-%d') startDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.START_DATE_,23) startDate, 
+		</if>
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.END_DATE_,23) endDate, 
+		</if>
+		DURATION_ duration, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d') actStartDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.ACT_START_DATE_,23) actStartDate, 
+		</if>
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d') actEndDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.ACT_END_DATE_,23) actEndDate, 
+		</if>
+		ACT_DURATION_ actDuration, REMARK_ remark,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, VERSION_ version,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),CREATE_TIME_,23) createTime, 
+		</if>
+		CREATE_TIME_, PROJ_UID_ projUid, PROGRESS_ progress
+		from GA_SCHEDULE a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 根据id删除 -->
+	<delete id="deleteByPrimaryKey">
+		DELETE FROM GA_SCHEDULE WHERE id_ = #{id}
+	</delete>	
+	
+	
+	<!-- 查询进度任务 -->
+	<select id="getProgressTaskById" resultType="com.jrsoft.business.modules.progress.model.Task">
+		SELECT *,datediff(endDate,startDate)+1 AS duration,datediff(actEndDate,actStartDate)+1 AS actDuration FROM(
+		SELECT ID_ id, CODE_ code, TEXT_ text,TASK_WEIGHT_ taskWeight,
+		CODING_ coding, TASK_TYPE_ taskType, TASK_SPECIALTY_ taskSpecialty, TASK_STANDARD_ taskStandard,
+		SORT_ sort, APPROVER_ approver, APPROVER_NAME_ approverName,
+		DELAY_FACTORS_ delayFactors,RISK_PROBLEM_ riskProblem,RISK_COUNTER_MEASURE_ riskCounterMeasure,APPROVAL_OPINION_ approvalOpinion,
+		PROGRESS_STATUS_ progressStatus,STAY_FOCUSED_ stayFocused,FUNCTION_ function,
+		LAST_REPORT_DATE_ lastReportDate,
+		<if test="dbType == 'mysql'">
+			ifnull(PROGRESS_,0) progress,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime,
+			DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate,
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate,
+			DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d') actStartDate,
+			DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d') actEndDate,
+			/*ifnull((select DATE_FORMAT(min(START_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.START_DATE_, '%Y-%m-%d')) startDate,
+			ifnull((select DATE_FORMAT(max(END_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.END_DATE_, '%Y-%m-%d')) endDate,
+			ifnull((select DATE_FORMAT(min(ACT_START_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d')) actStartDate,
+			ifnull((select DATE_FORMAT(max(ACT_END_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d')) actEndDate,*/
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(PROGRESS_,0) progress,
+			convert(varchar(100),CREATE_TIME_,23) createTime,
+			convert(varchar(100),a.START_DATE_,23) startDate,
+			convert(varchar(100),a.END_DATE_,23) endDate,
+			convert(varchar(100),a.ACT_START_DATE_,23) actStartDate,
+			convert(varchar(100),a.ACT_END_DATE_,23) actEndDate,
+		</if>
+		PARENT_UID_ parentUid, PROJ_UID_ projUid, REMARK_ remark, ASSIGNEE_ assignee, ASSIGNEE_NAME_ assigneeName,
+		SCHEDULE_UID_ scheduleUid, PARENT_ parent, TYPE_ type,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser,
+		STATUS_ status,
+		CASE  WHEN (SELECT COUNT(ID_) FROM  GA_TASK WHERE PARENT_ =a.CODE_)=0 THEN 'true' ELSE 'false' END leaf
+		FROM GA_TASK a WHERE SCHEDULE_UID_ = #{id}
+		<if test="weChat != null and weChat != ''">
+			<choose>
+			    <when test="isCompanyAdmin">
+			       and 1 = 1
+			    </when>
+			    <otherwise>
+			       and (ASSIGNEE_ = #{userUid} or CREATE_USER_ = #{userUid} or (select user_name_ from org_user where id_ = #{userUid} and company_ = #{companyUid}) = a.CREATE_USER_ )
+			    </otherwise>
+			</choose>
+		</if>
+		 order by SORT_) DATA
+	</select>
+
+	<!-- 手机端查询进度任务 -->
+	<select id="getProgressTaskForApp" resultType="com.jrsoft.business.modules.progress.model.Task">
+		SELECT *,datediff(endDate,startDate)+1 AS duration,datediff(actEndDate,actStartDate)+1 AS actDuration FROM(
+		SELECT ID_ id, CODE_ code, TEXT_ text,
+		fn_getParentPath(CODE_) parentPath,
+		CODING_ coding, TASK_TYPE_ taskType, TASK_SPECIALTY_ taskSpecialty, TASK_STANDARD_ taskStandard,
+		SORT_ sort, APPROVER_ approver, APPROVER_NAME_ approverName,
+		ifnull(PROGRESS_,0) progress,
+		DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime,
+		DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate,
+		DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate,
+		DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d') actStartDate,
+		DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d') actEndDate,
+		PARENT_UID_ parentUid, PROJ_UID_ projUid, REMARK_ remark, ASSIGNEE_ assignee, ASSIGNEE_NAME_ assigneeName,
+		SCHEDULE_UID_ scheduleUid, PARENT_ parent, TYPE_ type,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser,
+		STATUS_ status
+		FROM GA_TASK a WHERE SCHEDULE_UID_ = #{scheduleUid}
+		<!-- 审批任务 -->
+		<if test="type != null and type == 1">
+			and ifnull(PROGRESS_,0)=100 and (STATUS_ IS NULL OR STATUS_='0')
+			<if test="dataType != null and dataType == 'my'">
+				AND APPROVER_=#{userUid}
+			</if>
+		</if>
+		<!-- 进行中的任务 -->
+		<if test="type != null and type == 2">
+			and (ifnull(PROGRESS_,0)<![CDATA[ < ]]>100 OR STATUS_=2)
+
+			<if test="dataType != null and dataType == 'my'">
+				AND ASSIGNEE_=#{userUid}
+			</if>
+			<if test="dataType != null and dataType == 'unPass'">
+				AND STATUS_='2'
+			</if>
+			<if test="dataType != null and dataType == 'week'">
+				AND YEARWEEK(date_format(END_DATE_,'%Y-%m-%d'),1) = YEARWEEK(now(),1)
+				AND (STATUS_='2' OR STATUS_ IS NULL)
+			</if>
+			<if test="dataType != null and dataType == 'month'">
+
+				and DATE_FORMAT(END_DATE_, '%Y-%m-%d') BETWEEN DATE_ADD(curdate(),interval -day(curdate())+1 day) and last_day(NOW())
+				AND (STATUS_='2' OR STATUS_ IS NULL)
+			</if>
+			<if test="dataType != null and dataType == 'continue'">
+
+			</if>
+		</if>
+		<!-- 延误的任务 -->
+		<if test="type != null and type == 3">
+			AND DATE_FORMAT(END_DATE_, '%Y-%m-%d') <![CDATA[ < ]]> DATE_FORMAT(NOW(), '%Y-%m-%d')
+			and (ifnull(PROGRESS_,0)<![CDATA[ < ]]>100 OR STATUS_=2)
+		</if>
+		<!-- 已完成任务 -->
+		<if test="type != null and type == 4">
+			and ifnull(PROGRESS_,0)=100 and STATUS_='1'
+		</if>
+
+		<if test="search != null and search != ''">
+			AND TEXT_ LIKE concat("%",#{search},"%")
+		</if>
+
+
+		<!--<choose>
+			<when test="isCompanyAdmin">
+				and 1 = 1
+			</when>
+			<otherwise>
+				and (ASSIGNEE_ = #{userUid} or CREATE_USER_ = #{userUid}  )
+			</otherwise>
+		</choose>-->
+		order by END_DATE_) DATA LIMIT  #{start}, #{pageSize}
+	</select>
+	
+	<!-- 过滤没有下级的工序任务 -->
+	<select id="getTaskFilterData" resultType="com.jrsoft.business.modules.progress.model.Task">
+		select ID_ id, PARENT_ parent from GA_TASK where PARENT_ like (#{parent}+'%') and SCHEDULE_UID_ = #{id} and company_ = #{companyUid}
+	</select>
+	
+	<!-- 过滤没有下级的工序任务 -->
+	<select id="getTaskFilterData2" resultType="com.jrsoft.business.modules.progress.model.Task">
+		select ID_ id, PARENT_ parent from GA_TASK where PARENT_ = #{parent}  and SCHEDULE_UID_ = #{id} and company_ = #{companyUid}
+	</select>
+	
+	
+	<select id="searchTaskSuperiorName" resultType="com.jrsoft.business.modules.progress.model.Task">
+		select ID_ id, PARENT_ parent, TEXT_ text from GA_TASK where CODE_ = #{parent}  and SCHEDULE_UID_ = #{id} and company_ = #{companyUid}
+	</select>
+	
+	
+	<!-- 查询任务之间的关系线 -->
+	<select id="getProgressRelevancekById" resultType="com.jrsoft.business.modules.progress.model.Iink">
+		SELECT ID_ id, CODE_ code, SOURCE_ source, TARGET_ target, SOURCE_UID_ sourceUid, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),CREATE_TIME_,23) createTime, 
+		</if>
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, 
+		TARGET_UID_ targetUid, TYPE_ type, SCHEDULE_UID_ scheduleUid, PROJ_UID_ projUid, DAYS_ days 
+		FROM GA_LINK a WHERE SCHEDULE_UID_ = #{id}
+	</select>
+	
+	
+	<!-- 根据id查询进度任务详情 -->
+	<select id="getTaskDetailsById" resultType="com.jrsoft.business.modules.progress.model.Task">
+		<if test="dbType == 'mysql'">
+			SELECT ID_ id, CODE_ code, DURATION_ duration, TEXT_ text, DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate, SORT_ sort, APPROVER_ approver, APPROVER_NAME_ approverName,
+			DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d') actStartDate, DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d') actEndDate, ACT_DURATION_ actDuration,
+			PARENT_UID_ parentUid, PROJ_UID_ projUid, REMARK_ remark, ASSIGNEE_ assignee, ASSIGNEE_NAME_ assigneeName,STAY_FOCUSED_ stayFocused,
+			TASK_WEIGHT_ taskWeight,DELAY_FACTORS_ delayFactors,RISK_PROBLEM_ riskProblem,RISK_COUNTER_MEASURE_ riskCounterMeasure,APPROVAL_OPINION_ approvalOpinion,
+			PROGRESS_STATUS_ progressStatus,STAY_FOCUSED_ stayFocused,FUNCTION_ function,
+			PROGRESS_ progress, SCHEDULE_UID_ scheduleUid, PARENT_ parent, DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime, TYPE_ type,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate,STATUS_ status
+			FROM GA_TASK a WHERE id_ = #{id}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT ID_ id, CODE_ code, DURATION_ duration, TEXT_ text, convert(varchar(100),a.START_DATE_,23) startDate, SORT_ sort, APPROVER_ approver, APPROVER_NAME_ approverName,
+			convert(varchar(100),a.ACT_START_DATE_,23) actStartDate, convert(varchar(100),a.ACT_END_DATE_,23) actEndDate, ACT_DURATION_ actDuration, PARENT_UID_ parentUid, PROJ_UID_ projUid, REMARK_ remark, ASSIGNEE_ assignee, ASSIGNEE_NAME_ assigneeName,
+			PROGRESS_ progress, SCHEDULE_UID_ scheduleUid, PARENT_ parent, convert(varchar(100),CREATE_TIME_,23) createTime, TYPE_ type,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, convert(varchar(100),a.END_DATE_,23) endDate,STATUS_ status
+			FROM GA_TASK a WHERE id_ = #{id}
+		</if>
+
+	</select>
+	
+	
+	<!-- 根据id删除任务 -->
+	<delete id="deleteTask">
+		DELETE FROM GA_TASK WHERE id_ = #{id}
+	</delete>
+	
+	<delete id="deleteTaskById">
+		DELETE FROM GA_TASK WHERE SCHEDULE_UID_ = #{id}
+	</delete>
+	
+	
+	<!-- 根据id删除任务之间关联线 -->
+	<delete id="deleteRelevance">
+		DELETE FROM GA_LINK WHERE id_ = #{id}
+	</delete>
+	
+	
+	<!-- 根据项目id更改进度禁用 -->
+	<update id="updateScheduleStatus">
+		UPDATE GA_SCHEDULE SET ENABLE_ = 0 WHERE PROJ_UID_ = #{projUid} 
+		<if test="id != null and id != ''">
+			and id_ <![CDATA[  <>  ]]> #{id}
+		</if>
+	</update>
+	
+	
+	<!-- 查询任务上报记录 -->
+	<select id="searchTaskRecord" resultType="java.util.HashMap" >
+		select ID_ id, ACT_START_DATE_ actStartDate, ACT_END_DATE_ actEndDate, PROGRESS_ progress, 
+		CONTENT_ content, (select user_name_ from org_user where id_ = a.CREATE_USER_) createUser, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d %H:%i') createTime
+		from ga_task_record a where PARENT_UID_ = #{id} order by CREATE_TIME_ desc
+	</select>
+
+	<select id="getChildTasks" resultType="com.jrsoft.business.modules.progress.model.TaskDTO" >
+		SELECT ID_ id, CODE_ code, DURATION_ duration, TEXT_ text
+
+		,(case WHEN (SELECT COUNT(ID_) FROM GA_TASK where PARENT_ = a.CODE_ )=0 THEN 'true' ELSE 'false' END ) leaf
+
+		from GA_TASK a where PARENT_ = #{parentUid} AND SCHEDULE_UID_=#{scheduleUid} order by SORT_
+	</select>
+
+	<!-- 批量更新任务 -->
+	<update id="batchUpdateTask">
+		UPDATE GA_TASK
+		<set>
+			<if test="assignee != null and assignee != ''">
+				ASSIGNEE_ = #{assignee},
+			</if>
+			<if test="approver != null and approver != ''">
+				APPROVER_ = #{approver},
+			</if>
+			<if test="startDate != null and startDate != ''">
+				START_DATE_ = #{startDate},
+			</if>
+			<if test="endDate != null and endDate != ''">
+				END_DATE_ = #{endDate},
+			</if>
+			<if test="assigneeName != null and assigneeName != ''">
+				ASSIGNEE_NAME_ = #{assigneeName},
+			</if>
+			<if test="approverName != null and approverName != ''">
+				APPROVER_NAME_ = #{approverName}
+			</if>
+		</set>
+
+		WHERE ID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</update>
+
+	<select id="getTemplates" resultType="java.util.HashMap" >
+		SELECT ID_ id, CODE_ code, DURATION_ duration, TEXT_ text,START_DATE_ startDate,END_DATE_ endDate,ACT_START_DATE_ actStartDate,
+		ACT_END_DATE_ act_end_date_,ACT_DURATION_ actDuration,PROGRESS_ progress,PARENT_ parent
+		from ga_schedule_det a where PARENT_ = #{parentUid} order by CREATE_TIME_ desc
+	</select>
+
+	<select id="getTempSchedule" resultType="java.util.HashMap" >
+		SELECT ID_ id, TITLE_ title
+		from ga_schedule a where PROJ_UID_ ='SYS' AND ENABLE_ = 1 order by CREATE_TIME_ desc LIMIT 1
+	</select>
+
+	<select id="getTemplatesList" resultType="com.jrsoft.business.modules.progress.model.Task" >
+		SELECT ID_ id, CODE_ code, SORT_ sort, TEXT_ text,TASK_TYPE_ taskType,TASK_SPECIALTY_ taskSpecialty,TASK_STANDARD_ taskStandard,
+		TASK_WEIGHT_ taskWeight,ACT_DURATION_ actDuration,PROGRESS_ progress,PARENT_ parent
+		from ga_schedule_det a WHERE SCHEDULE_UID_ = #{scheduleUid} order by CODE_ desc
+	</select>
+
+	<!-- 查询进度任务 -->
+	<select id="getProgressTaskList" resultType="com.jrsoft.business.modules.progress.model.Task">
+		SELECT *,datediff(endDate,startDate) AS duration,datediff(actEndDate,actStartDate) AS actDuration FROM(
+		SELECT ID_ id, CODE_ code, TEXT_ text,
+		ifnull((select DATE_FORMAT(min(START_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.START_DATE_, '%Y-%m-%d')) startDate,
+		ifnull((select DATE_FORMAT(max(END_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.END_DATE_, '%Y-%m-%d')) endDate,
+		ifnull((select DATE_FORMAT(min(ACT_START_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d')) actStartDate,
+		ifnull((select DATE_FORMAT(max(ACT_END_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d')) actEndDate,
+		STATUS_ status
+		FROM GA_TASK a WHERE SCHEDULE_UID_ = #{scheduleUid} and (SELECT COUNT(ID_)  FROM GA_TASK WHERE PARENT_=a.CODE_)>0
+		order by SORT_) DATA
+	</select>
+
+	<!-- 根据id查询子进度任务 -->
+	<select id="getChildProgressTaskList" resultType="com.jrsoft.business.modules.progress.model.Task">
+		SELECT ID_ id, CODE_ code, TEXT_ text,
+		PROGRESS_ progress,TASK_WEIGHT_ taskWeight
+		FROM GA_TASK a WHERE PARENT_ = #{parent}	order by SORT_
+	</select>
+
+	<update id="updateParentTask">
+		UPDATE GA_TASK
+		<set>
+			<if test="duration != null and duration != ''">
+				DURATION_ = #{duration},
+			</if>
+			<if test="actDuration != null and actDuration != ''">
+				ACT_DURATION_ = #{actDuration},
+			</if>
+			<if test="startDate != null and startDate != ''">
+				START_DATE_ = #{startDate},
+			</if>
+			<if test="endDate != null and endDate != ''">
+				END_DATE_ = #{endDate},
+			</if>
+			<if test="actStartDate != null and actStartDate != ''">
+				ACT_START_DATE_ = #{actStartDate},
+			</if>
+			<if test="actEndDate != null and actEndDate != ''">
+				ACT_END_DATE_ = #{actEndDate}
+			</if>
+			<if test="progress != null and progress != ''">
+				PROGRESS_ = #{progress}
+			</if>
+		</set>
+		WHERE CODE_ =#{code}
+	</update>
+
+	<update id="updateTask">
+		UPDATE GA_TASK
+		<set>
+			<if test="duration != null and duration != ''">
+				DURATION_ = #{duration},
+			</if>
+			<if test="actDuration != null and actDuration != ''">
+				ACT_DURATION_ = #{actDuration},
+			</if>
+			<if test="startDate != null and startDate != ''">
+				START_DATE_ = #{startDate},
+			</if>
+			<if test="endDate != null and endDate != ''">
+				END_DATE_ = #{endDate},
+			</if>
+			<if test="actStartDate != null and actStartDate != ''">
+				ACT_START_DATE_ = #{actStartDate},
+			</if>
+			<if test="actEndDate != null and actEndDate != ''">
+				ACT_END_DATE_ = #{actEndDate}
+			</if>
+			<if test="progress != null and progress != ''">
+				PROGRESS_ = #{progress}
+			</if>
+		</set>
+		WHERE ID_ =#{id}
+	</update>
+
+	<!--导入-->
+	<insert id="insertTaskByBatch" parameterType="java.util.List">
+		insert into GA_TASK (ID_,CODE_,TEXT_, START_DATE_,END_DATE_,ACT_START_DATE_,ACT_END_DATE_,DURATION_,ACT_DURATION_,PROGRESS_,
+		  CODING_,TASK_TYPE_,TASK_SPECIALTY_,TASK_STANDARD_,TASK_WEIGHT_,PARENT_,PROJ_UID_,SCHEDULE_UID_,SORT_,CREATE_USER_,CREATE_TIME_,COMPANY_)
+		values
+		<foreach collection="taskList" item="item" index="index" separator=",">
+			(#{item.id,jdbcType=VARCHAR},#{item.code},#{item.text}, #{item.startDate,jdbcType=VARCHAR}, #{item.endDate}, #{item.actStartDate},
+			#{item.actEndDate},#{item.duration},#{item.actDuration},#{item.progress},#{item.coding},#{item.taskType},#{item.taskSpecialty},
+			#{item.taskStandard},#{item.taskWeight},#{item.parent},#{item.projUid},#{item.scheduleUid},#{item.sort},
+			#{item.createUser,jdbcType=VARCHAR},#{item.createTime,jdbcType=TIMESTAMP},#{item.company,jdbcType=VARCHAR}
+
+			)
+		</foreach>
+	</insert>
+
+	<update id="batchUpdateParentTask">
+		UPDATE GA_TASK a,(SELECT *,datediff(endDate,startDate) AS duration,datediff(actEndDate,actStartDate) AS actDuration FROM(
+		SELECT ID_,
+			ifnull((select DATE_FORMAT(min(START_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.START_DATE_, '%Y-%m-%d')) startDate,
+			ifnull((select DATE_FORMAT(max(END_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.END_DATE_, '%Y-%m-%d')) endDate,
+			ifnull((select DATE_FORMAT(min(ACT_START_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d')) actStartDate,
+			ifnull((select DATE_FORMAT(max(ACT_END_DATE_), '%Y-%m-%d') from ga_task where FIND_IN_SET(CODE_,queryTaskChildren(a.CODE_))),DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d')) actEndDate
+			FROM GA_TASK a WHERE FIND_IN_SET(CODE_,queryTaskParent(#{taskCode}))
+			order by SORT_) DATA) b
+		SET a.START_DATE_=b.startDate,a.END_DATE_=b.endDate,a.ACT_START_DATE_=b.actStartDate,a.ACT_END_DATE_=b.actEndDate,
+		a.DURATION_=b.duration,a.ACT_DURATION_=b.actDuration
+		WHERE a.ID_=b.ID_
+	</update>
+
+	<select id="getRemindList" resultType="java.util.HashMap" >
+		SELECT ID_ id,ASSIGNEE_ assignee,ASSIGNEE_NAME_ assigneeName,APPROVER_ approver,APPROVER_NAME_ approverName
+		FROM ga_task WHERE TASK_TYPE_ in ('阶段计划','月计划','周计划') and PROGRESS_ &lt;100 AND (STATUS_ IS NULL OR STATUS_=2)
+	</select>
+
+	<!--保存进度-->
+	<insert id="saveSchedule" parameterType="com.jrsoft.business.modules.progress.model.Schedule">
+		insert into GA_SCHEDULE (ID_,TITLE_,START_DATE_, END_DATE_,ACT_START_DATE_,ACT_END_DATE_,DURATION_,ACT_DURATION_,PROGRESS_,
+		PROJ_UID_,VERSION_,ENABLE_,REMARK_,PARENT_ID_,ADJUST_REASON_,CREATE_USER_,CREATE_TIME_,COMPANY_)
+		values
+			(#{id,jdbcType=VARCHAR},#{title}, #{startDate,jdbcType=VARCHAR}, #{endDate}, #{actStartDate},
+			#{actEndDate},#{duration},#{actDuration},#{progress},#{projUid},#{version},#{enable},
+			#{remark},#{parentId},#{adjustReason},
+			#{createUser,jdbcType=VARCHAR},#{createTime,jdbcType=TIMESTAMP},#{company,jdbcType=VARCHAR}
+			)
+	</insert>
+
+	<resultMap type="com.jrsoft.business.modules.progress.model.LeaseReport" id="reportForLeaseMap">
+		<id property="id" column="ID_" />
+		<result property="projName" column="projName" />
+		<result property="projCode" column="projCode" />
+		<collection property="taskList" ofType="com.jrsoft.business.modules.progress.model.Task">
+			<id property="id" column="TASK_ID_" />
+			<result property="text" column="TEXT_" jdbcType="VARCHAR" />
+			<result property="projStatus" column="PROJ_STATUS_" jdbcType="VARCHAR" />
+			<result property="startDate" column="START_DATE_" jdbcType="VARCHAR" />
+			<result property="endDate" column="END_DATE_" jdbcType="VARCHAR" />
+			<result property="actStartDate" column="ACT_START_DATE_" jdbcType="VARCHAR" />
+			<result property="actEndDate" column="ACT_END_DATE_" jdbcType="VARCHAR" />
+			<result property="duration" column="duration" jdbcType="VARCHAR" />
+			<result property="status" column="STATUS_" jdbcType="VARCHAR" />
+			<result property="assigneeName" column="assigneeName" jdbcType="VARCHAR" />
+			<result property="remark" column="REMARK_" jdbcType="VARCHAR" />
+			<result property="delayDays" column="delayDays" jdbcType="VARCHAR" />
+			<result property="progressStatus" column="progressStatus" jdbcType="VARCHAR" />
+			<result property="offsetDuration" column="offsetDuration" jdbcType="VARCHAR" />
+			<result property="riskProblem" column="RISK_PROBLEM_" jdbcType="VARCHAR" />
+			<result property="riskCounterMeasure" column="RISK_COUNTER_MEASURE_" jdbcType="VARCHAR" />
+			<result property="approvalOpinion" column="APPROVAL_OPINION_" jdbcType="VARCHAR" />
+			<result property="stayFocused" column="STAY_FOCUSED_" jdbcType="VARCHAR" />
+			<result property="function" column="FUNCTION_" jdbcType="VARCHAR" />
+			<result property="lastReportDate" column="LAST_REPORT_DATE_" jdbcType="VARCHAR" />
+			<result property="actDuration" column="actDuration" jdbcType="VARCHAR" />
+		</collection>
+	</resultMap>
+
+	<sql id="queryReportForLease">
+		SELECT *,ifnull(actDuration,0)-duration as offsetDuration FROM(
+		SELECT p.ID_,p.XMBH_ projCode, p.XMMC_ projName,p.STATUS_ AS PROJ_STATUS_,a.TEXT_,a.ID_ AS TASK_ID_,a.REMARK_,a.RISK_PROBLEM_,a.RISK_COUNTER_MEASURE_,a.APPROVAL_OPINION_,
+		ifnull(a.PROGRESS_,0) progress,a.ASSIGNEE_NAME_ assigneeName,
+		a.STATUS_,a.STAY_FOCUSED_,a.FUNCTION_,LAST_REPORT_DATE_,
+		DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') START_DATE_,
+		DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') END_DATE_,
+		DATE_FORMAT(a.ACT_START_DATE_, '%Y-%m-%d') ACT_START_DATE_,
+		DATE_FORMAT(a.ACT_END_DATE_, '%Y-%m-%d') ACT_END_DATE_,
+		datediff(a.END_DATE_,a.START_DATE_)+1 AS duration,datediff(a.ACT_END_DATE_,a.ACT_START_DATE_)+1 AS actDuration,
+		(case when a.ACT_END_DATE_ is null then ifnull(datediff(now(),a.END_DATE_),0) else ifnull(datediff(a.ACT_END_DATE_,a.END_DATE_),0) end) AS delayDays
+		FROM GA_TASK a left join wx_project p on a.PROJ_UID_=p.ID_ left join GA_SCHEDULE g on a.SCHEDULE_UID_=g.ID_
+		WHERE p.COMPANY_=#{companyUid} and (p.IF_DELETE_='0' or p.IF_DELETE_ is null) and g.ENABLE_='1'
+		<if test="projType != null and projType != ''">
+			and p.CLASSIFY_ = #{projType}
+		</if>
+		<if test="assignee != null and assignee != ''">
+			and a.ASSIGNEE_ = #{assignee}
+		</if>
+		<if test="status != null and status != ''">
+			and a.PROGRESS_STATUS_ = #{status}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			and a.START_DATE_ <![CDATA[ >= ]]> #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			and a.END_DATE_ <![CDATA[ <= ]]> #{endDate}
+		</if>
+		<if test="projIds != null and projIds != ''">
+			AND a.PROJ_UID_ IN
+			<foreach collection="projIds" index="index" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		order by a.PROJ_UID_,a.END_DATE_) DATA LIMIT #{start},#{pageSize}
+	</sql>
+
+	<!-- 获取租赁项目进度明细表(分组) -->
+	<select id="getReportForLease" resultMap="reportForLeaseMap">
+		<include refid="queryReportForLease"/>
+	</select>
+	<!-- 获取租赁项目进度明细表(不分组) -->
+	<select id="getDetsForProgress" resultType="com.jrsoft.business.modules.progress.model.Task">
+		<include refid="queryReportForLease"/>
+	</select>
+	<select id="getReportForLeaseTotalCount" resultType="int">
+		select count(1) FROM GA_TASK a left join wx_project p on a.PROJ_UID_=p.ID_ left join GA_SCHEDULE g on a.SCHEDULE_UID_=g.ID_
+		WHERE p.COMPANY_=#{companyUid} and (p.IF_DELETE_='0' or p.IF_DELETE_ is null) and g.ENABLE_='1'
+		<if test="projType != null and projType != ''">
+			and p.CLASSIFY_ = #{projType}
+		</if>
+		<if test="assignee != null and assignee != ''">
+			and a.ASSIGNEE_ = #{assignee}
+		</if>
+		<if test="status != null and status != ''">
+			and a.PROGRESS_STATUS_ = #{status}
+		</if>
+		<if test="startDate != null and startDate != ''">
+			and a.START_DATE_ <![CDATA[ >= ]]> #{startDate}
+		</if>
+		<if test="endDate != null and endDate != ''">
+			and a.END_DATE_ <![CDATA[ <= ]]> #{endDate}
+		</if>
+		<if test="projIds != null and projIds != ''">
+			AND a.PROJ_UID_ IN
+			<foreach collection="projIds" index="index" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+	</select>
+
+	<!-- 获取租赁项目进度汇总表 -->
+	<select id="getReportForLeaseCollect" resultType="java.util.HashMap">
+		select *,(case when delayDays is null or delayDays ='0' then '正常' when delayDays <![CDATA[ > ]]>0 and delayDays <![CDATA[ <= ]]>7 then '可控' when delayDays <![CDATA[ > ]]>7 then '延误' else '' end) progressStatus
+		from (select P.ID_,P.XMMC_,P.XMBH_,P.CLASSIFY_,S.SITE_TYPE_,S.DEMAND_ORGANIZATION_,S.SITE_PROPERTY_,
+		S.DESIGN_,S.COST_,S.PURCHASE_,S.PROVINCE_,S.CITY_,S.DISTRICT_,S.PM_,S.BUSINESS_REQUIREMENTS_,S.COVERED_AREA_,S.PROJ_AREA_,
+		DATE_FORMAT(MIN(G.START_DATE_),'%Y-%m-%d') START_DATE_,DATE_FORMAT(MAX(G.END_DATE_),'%Y-%m-%d') END_DATE_,
+		DATE_FORMAT(MIN(G.ACT_START_DATE_),'%Y-%m-%d') ACT_START_DATE_,DATE_FORMAT(MAX(G.ACT_END_DATE_),'%Y-%m-%d') ACT_END_DATE_,
+		(case when MAX(G.ACT_END_DATE_) is null then ifnull(datediff(now(),MAX(G.END_DATE_)),0) else ifnull(datediff(MAX(G.ACT_END_DATE_),MAX(G.END_DATE_)),0) end) AS delayDays
+		from wx_project P LEFT JOIN GA_TASK G ON P.ID_=G.PROJ_UID_ AND G.SCHEDULE_UID_ IN (select ID_ from ga_schedule where ENABLE_='1' AND PROJ_UID_=P.ID_)
+		/*AND G.PROGRESS_ <![CDATA[ <> ]]> '100' AND G.ACT_START_DATE_ IS NOT NULL*/
+		left join t_setup_project S ON P.PROJECT_ID_=S.ID_
+		WHERE P.COMPANY_=#{companyUid} and (P.IF_DELETE_='0' or P.IF_DELETE_ is null)
+		<if test="projType != null and projType != ''">
+			and P.CLASSIFY_ = #{projType}
+		</if>
+		<if test="district != null and district != ''">
+			and P.DISTRICT_ = #{district}
+		</if>
+		<if test="projIds != null and projIds != ''">
+			AND P.ID_ IN
+			<foreach collection="projIds" index="index" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		GROUP BY P.CREATE_TIME_ desc) DATA
+		LIMIT #{start},#{pageSize}
+
+	</select>
+	<select id="getLeaseCollectReportForTotalCount" resultType="int">
+		select count(1) from wx_project P
+		WHERE P.COMPANY_=#{companyUid} and (P.IF_DELETE_='0' or P.IF_DELETE_ is null)
+		<if test="projType != null and projType != ''">
+			and P.CLASSIFY_ = #{projType}
+		</if>
+		<if test="projIds != null and projIds != ''">
+			AND P.ID_ IN
+			<foreach collection="projIds" index="index" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+	</select>
+
+	<update id="updateTaskStatus">
+		update ga_task a set PROGRESS_STATUS_='正常';
+		update ga_task a set PROGRESS_STATUS_='可控' where ACT_END_DATE_ is null and ifnull(datediff(now(),END_DATE_),0) <![CDATA[ > ]]>0 and ifnull(datediff(now(),END_DATE_),0)<![CDATA[ <= ]]> 7;
+		update ga_task a set PROGRESS_STATUS_='延误' where ACT_END_DATE_ is null and ifnull(datediff(now(),END_DATE_),0) <![CDATA[ > ]]>7;
+		update ga_task a set PROGRESS_STATUS_='未开始' where ACT_END_DATE_ is null and ifnull(datediff(now(),START_DATE_),0)<![CDATA[ < ]]> 0;
+		update ga_task a set PROGRESS_STATUS_='可控' where ACT_END_DATE_ is NOT null and ifnull(datediff(ACT_END_DATE_,END_DATE_),0) <![CDATA[ > ]]>0
+		and ifnull(datediff(ACT_END_DATE_,END_DATE_),0) <![CDATA[ <= ]]>7;
+		update ga_task a set PROGRESS_STATUS_='延误' where ACT_END_DATE_ is not null and ifnull(datediff(ACT_END_DATE_,END_DATE_),0) <![CDATA[ > ]]>7;
+		update ga_task a set PROGRESS_STATUS_='提前' where ACT_END_DATE_ is not null and ifnull(datediff(ACT_END_DATE_,END_DATE_),0)<![CDATA[ < ]]> 0;
+		update ga_task a left join wx_project p on a.PROJ_UID_=p.ID_ set a.PROGRESS_STATUS_='暂停中' where p.STATUS_='停工' and (a.PROGRESS_ is null or a.PROGRESS_ <![CDATA[ <> ]]>'100');
+	</update>
+
+</mapper> 

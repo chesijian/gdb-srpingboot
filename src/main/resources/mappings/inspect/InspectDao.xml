@@ -1,0 +1,1726 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.construction.dao.InspectDao">
+
+	<resultMap id="attachmentResultMap" type="java.util.HashMap">
+		<id property="id" column="ID_" jdbcType="VARCHAR" />
+		<result property="fileName" column="FILE_NAME_" jdbcType="VARCHAR" />
+		<result property="suffix" column="SUFFIX_" jdbcType="VARCHAR" />
+		<result property="xtype" column="XTYPE_" jdbcType="VARCHAR" />
+		<result property="size" column="SIZE_" jdbcType="INTEGER" />
+		<result property="parentId" column="PARENT_ID_" jdbcType="VARCHAR" />
+		<result property="createUser" column="CREATE_USER_" jdbcType="VARCHAR" />
+		<result property="createTime" column="CREATE_TIME_" jdbcType="TIMESTAMP" />
+	</resultMap>
+
+
+	<select id="selectFileList" resultType="java.util.HashMap">
+		select ID_ id,FILE_NAME_ fileName,SUFFIX_ suffix,COMPANY_ company,CREATE_TIME_ createTime from T_ATTACHMENT where PARENT_ID_ = #{parentId}
+		<if test="xtype != null">
+			where XTYPE_ = #{xtype}
+		</if>
+		order by XTYPE_
+	</select>
+
+	<!--获取检查项目录数据-->
+	<select id="getCheckItemCatalog" resultType="java.util.HashMap">
+		select ID_ id,NAME_ label,SORT_ sort,TYPE_ type,LB_ lb,CHECK_REQUIRE_ checkRequire
+
+		<choose>
+			<when test="projUid != null and projUid != '' ">
+				from T_INSPECT_ITEM D 
+			</when>
+			<otherwise>
+			,PROJ_PURPOSE projPurpose, PROJ_LX projLx from T_INSPECT_COMPANY D 
+			</otherwise>
+		</choose>
+		
+		
+		where COMPANY_ = #{companyUid,jdbcType=VARCHAR} AND  PARENT_ID_=#{parentUid} 
+		<if test="projUid != null and projUid != '' ">
+			AND PROJ_UID_=#{projUid}
+		</if>
+		AND LB_ !='检查项' AND LB_ !='实测项'
+		<if test="formType != null and formType!='' ">
+			and TYPE_ =#{formType}
+		</if>
+		<if test="formType != 'measure'">
+			<if test="type != null and type != '' ">
+				and FORM_TYPE_ = #{type}
+			</if>
+		</if>
+		order by SORT_ DESC
+
+	</select>
+
+	<!--获取检查项目录数据-->
+	<select id="getInspectItemCatalog" resultType="java.util.HashMap">
+		select ID_ id,NAME_ label,SORT_ sort,TYPE_ type,LB_ lb,CHECK_REQUIRE_ checkRequire,
+		(SELECT COUNT(ID_) FROM T_INSPECT_ITEM WHERE PARENT_ID_ =D.ID_ AND LB_ !='检查项' AND LB_ !='实测项') childNum
+		<choose>
+			<when test="projUid != null and projUid != '' ">
+				from T_INSPECT_ITEM D
+			</when>
+			<otherwise>
+				,PROJ_PURPOSE projPurpose, PROJ_LX projLx from T_INSPECT_COMPANY D
+			</otherwise>
+		</choose>
+		where PARENT_ID_=#{parentUid}
+		<if test="projUid != null and projUid != '' ">
+			AND PROJ_UID_=#{projUid}
+		</if>
+		AND LB_ !='检查项' AND LB_ !='实测项'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="type != null and type != '' ">
+			and TYPE_ = #{type}
+		</if>
+		order by SORT_
+
+	</select>
+
+	<!--获取检查项列表数据-->
+	<select id="getCheckItemData" resultType="com.jrsoft.business.modules.construction.domain.CheckItem">
+		<if test="dbType == 'mysql'">
+			select ID_ id,NAME_ itemName,SORT_ sort,LB_ lb,PROJ_TYPE_ projType,TYPE_ type,MIN_SAMPLE_ minSample,CHECK_REQUIRE_ checkRequire,
+			(case TYPE_ WHEN 'quality' THEN '质量' WHEN 'safety' THEN '安全' ELSE '' END) typeName,SORT_,GRADE_ grade,
+			(case PROJ_TYPE_ WHEN 0 THEN '一般项目' WHEN 1 THEN '主控项目' ELSE '' END) projTypeName,
+			(case LB_ WHEN '检查项' THEN 'false' WHEN '实测项' THEN 'false' ELSE 'true' END) flag
+			<choose>
+				<when test="projUid != null and type != 'procedure' ">
+					from T_INSPECT_ITEM D 
+				</when>
+				<when test="projUid != null and type == 'procedure' ">
+					from T_PROCESS D
+				</when>
+				<otherwise>
+					from T_INSPECT_COMPANY D 
+				</otherwise>
+			</choose>
+			
+			where COMPANY_ = #{companyUid,jdbcType=VARCHAR} AND  PARENT_ID_=#{parentUid} 
+			<if test="projUid != null and projUid != ''">
+				AND PROJ_UID_=#{projUid}
+			</if>
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<choose>
+				<when test="ifCatalog"></when>
+				<otherwise>
+					and (LB_ ='检查项' OR LB_='实测项')
+				</otherwise>
+			</choose>
+
+			<if test="type != null and type!='' ">
+				and TYPE_ =#{type}
+			</if>
+			<if test="itemLb != null and itemLb!='' ">
+				and (LB_ IN ('分部','子分部','分项','专业') OR LB_ =#{itemLb})
+			</if>
+			<if test="projLx != null and projLx!='' ">
+				and (PROJ_LX  = #{projLx} OR PROJ_LX='通用' OR PROJ_PURPOSE='通用')
+			</if>
+			<if test="projPurpose != null and projPurpose!='' ">
+				and (PROJ_PURPOSE  =#{projPurpose} OR PROJ_PURPOSE='通用' OR PROJ_LX='通用')
+			</if>
+
+			<if test="search != null and search!='' ">
+				and NAME_ like concat('%', #{search}, '%')
+			</if>
+			order by SORT_ desc limit #{start},#{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY SORT_ DESC) as Rownumver,
+			ID_ id,NAME_ itemName,SORT_ sort,LB_ lb,PROJ_TYPE_ projType,TYPE_ type,MIN_SAMPLE_ minSample,CHECK_REQUIRE_ checkRequire,
+			(case TYPE_ WHEN 'quality' THEN '质量' WHEN 'safety' THEN '安全' ELSE '' END) typeName,SORT_,GRADE_ grade,
+			(case PROJ_TYPE_ WHEN 0 THEN '一般项目' WHEN 1 THEN '主控项目' ELSE '' END) projTypeName,
+			(case LB_ WHEN '检查项' THEN 'false' WHEN '实测项' THEN 'false' ELSE 'true' END) flag
+			from T_INSPECT_ITEM D where COMPANY_ = #{companyUid,jdbcType=VARCHAR} AND  PARENT_ID_=#{parentUid} AND PROJ_UID_=#{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<choose>
+				<when test="ifCatalog"></when>
+				<otherwise>
+					and (LB_ ='检查项' OR LB_='实测项')
+				</otherwise>
+			</choose>
+			<if test="itemLb != null and itemLb!='' ">
+				and LB_ IN  ('分项','子分部','分部',#{itemLb})
+			</if>
+			<if test="type != null and type!='' ">
+				and TYPE_ =#{type}
+			</if>
+			<if test="search != null and search!='' ">
+				and NAME_ like '%'+#{search}+'%'
+			</if>
+			) data  where (data.Rownumver between #{start} and #{end})  order by SORT_ desc
+		</if>
+
+	</select>
+	<!--获取检查项列表总数-->
+	<select id="getCheckItemTotalCount" resultType="int">
+		select COUNT(ID_) 
+		<choose>
+			<when test="projUid != null and projUid != '' ">
+				from T_INSPECT_ITEM D 
+			</when>
+			<otherwise>
+				from T_INSPECT_COMPANY D 
+			</otherwise>
+		</choose>
+		
+		where COMPANY_ = #{companyUid,jdbcType=VARCHAR} AND  PARENT_ID_=#{parentUid} 
+		<if test="projUid != null and projUid != ''">
+			AND PROJ_UID_=#{projUid}
+		</if>
+		<choose>
+			<when test="ifCatalog"></when>
+			<otherwise>
+				and (LB_ ='检查项' OR LB_='实测项')
+			</otherwise>
+		</choose>
+		<if test="itemLb != null and itemLb!='' ">
+			and LB_ IN  ('分项','子分部','分部','子分项',#{itemLb})
+		</if>
+		<if test="type != null and type!='' ">
+			and TYPE_ =#{type}
+		</if>
+
+	</select>
+
+	<!-- 编辑时根据id获取检查项数据 -->
+	<select id="getCheckItemById" resultType="java.util.HashMap">
+		SELECT NAME_ ,SORT_,TYPE_,CHECK_REQUIRE_,PROJ_UID_,DESIGN_VALUE_,FORM_TYPE_,PARENT_ID_,LB_,PROJ_TYPE_,
+		GRADE_,DESIGN_VALUE_,GRADE_LEVEL_
+		from T_INSPECT_ITEM D where ID_ = #{id}
+	</select>
+
+	<!-- 导入时根据检查项名称获取检查项数据 -->
+	<select id="findItemByName" resultType="java.util.HashMap">
+		SELECT top 1 ID_ id,NAME_ ,SORT_,TYPE_,CHECK_REQUIRE_,PROJ_UID_,DESIGN_VALUE_
+		from T_INSPECT_ITEM D where NAME_ = #{itemName}
+	</select>
+
+	<!--批量删除检查项-->
+	<delete id="batchDeleteCheckItem">
+		delete from <include refid='public.model' /> ${tableName} where ID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</delete>
+
+	<!--导入-->
+	<insert id="insertCheckItemByBatch" parameterType="java.util.List">
+		insert into ${sqlTableName} (ID_,FORM_TYPE_,NAME_, SIGN_,TYPE_,LB_,CHECK_REQUIRE_,PARENT_ID_,PROJ_TYPE_,CREATE_USER_,CREATE_TIME_,COMPANY_ 
+		<if test="sqlTableName == 'T_INSPECT_COMPANY'">
+			,PROJ_LX, PROJ_PURPOSE
+		</if>
+		<if test="sqlTableName == 'T_INSPECT_ITEM'">
+			,PROJ_UID_ 
+		</if>
+		<if test="sqlTableName == 'T_PROCESS'">
+			,PROJ_UID_ 
+		</if>
+		)
+		values
+		<foreach collection="dataList" item="item" index="index" separator=",">
+			(#{item.id,jdbcType=VARCHAR},#{item.formType},#{item.itemName}, #{item.sign,jdbcType=VARCHAR}, #{item.type}, #{item.lb}, #{item.checkRequire},#{item.parentUid},#{item.projType},#{item.createUser,jdbcType=VARCHAR},#{item.createTime,jdbcType=TIMESTAMP},#{item.company,jdbcType=VARCHAR}  
+			<if test="sqlTableName == 'T_INSPECT_COMPANY'">
+				, #{item.projectType,jdbcType=VARCHAR}, #{item.yeTai,jdbcType=VARCHAR}
+			</if>
+			<if test="sqlTableName == 'T_INSPECT_ITEM'">
+				,#{item.projUid,jdbcType=VARCHAR}  
+			</if>
+			<if test="sqlTableName == 'T_PROCESS'">
+				,#{item.projUid,jdbcType=VARCHAR}  
+			</if>
+			)
+		</foreach>
+	</insert>
+
+	<resultMap type="java.util.HashMap" id="checkRecordMap">
+		<id property="id" column="ID_" />
+		<result property="inspectItemUid" column="INSPECT_ITEM_UID_" />
+		<!--<result property="businessKey" column="BUSINESSKEY_" />-->
+		<result property="businessUrl" column="BUSINESS_URL_" />
+		<result property="formUrl" column="FORM_URL_" />
+		<result property="createTime" column="CREATE_TIME_" />
+		<result property="createDate" column="CREATE_DATE_" />
+		<result property="rectifyDeadline" column="RECTIFY_DEADLINE_" />
+		<result property="picture" column="PICTURE_" />
+		<result property="position" column="POSITION_" />
+		<result property="dataType" column="DATA_TYPE_" />
+		<collection property="imgs" column="{parentId=ID_}" javaType="java.util.List"  select="selectFileList" />
+	</resultMap>
+
+	<sql id="queryCheckRecordSql">
+		<if test="processId != null and processId != ''">
+			and D.PROCESS_ID_ = #{processId}
+		</if>
+
+		<if test="myAbarbeitung != null and myAbarbeitung != ''">
+			and PROCESS_ID_ is not null and DATA_TYPE_ = 'inspect' and RECTIFY_PRINCIPAL_UID_ = #{userUid}
+		</if>
+		<if test="processStatus != null and processStatus != ''">
+			and D.STATUS_ = #{processStatus}
+		</if>
+		<if test="areaId != null and areaId != '' ">
+			and D.INSPECT_PART_UID_ = #{areaId}
+		</if>
+		<if test="processPerson != null and processPerson != ''">
+			and RECTIFY_PRINCIPAL_UID_ = #{processPerson}
+		</if>
+		<if test="dataType != null and dataType!='' ">
+			and DATA_TYPE_ =#{dataType}
+		</if>
+		<if test="lb != null and lb!='' and lb!='aboutMe' ">
+			and LB_ =#{lb}
+		</if>
+		<if test="lb != null and lb=='aboutMe' ">
+			and (CREATE_USER_=#{userUid} OR RECTIFY_PRINCIPAL_UID_=#{userUid} OR #{userUid} IN (SELECT USER_UID_ FROM T_INSPECT_USER WHERE PARENT_UID_=D.ID_))
+		</if>
+		<if test="dataStatus != null and dataStatus ==2 "><!--待我整改-->
+			and RECTIFY_PRINCIPAL_UID_=#{userUid} AND STATUS_ = '2'
+		</if>
+		<if test="dataStatus != null and dataStatus ==3"><!--待我复查-->
+			and (STATUS_ = '3' AND #{userUid} IN (SELECT USER_UID_ FROM T_INSPECT_USER WHERE PARENT_UID_=D.ID_ AND USER_TYPE_=2))
+		</if>
+		<if test="dataStatus != null and dataStatus ==4"><!--我提交的-->
+			<choose>
+				<when test="formType != null and formType=='measure'">
+					and INITIATOR_=#{userUid}
+				</when>
+				<otherwise>
+					and CREATE_USER_=#{userUid}
+				</otherwise>
+			</choose>
+
+		</if>
+		<if test="dataStatus != null and dataStatus ==6 "><!--待修复-->
+			AND STATUS_ = '2'
+		</if>
+		<if test="dataStatus != null and dataStatus ==7 "><!--待销项-->
+			AND STATUS_ = '3'
+		</if>
+		<if test="dataStatus != null and dataStatus ==8 "><!--待销项-->
+			and STATUS_ IN (4,5,6)
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="status != null and status!='' and status!='finish' ">
+			and STATUS_ =#{status}
+		</if>
+		<if test="status != null and status=='finish' ">
+			and STATUS_ IN (4,5)
+		</if>
+		<if test="principal != null and principal!='' ">
+			and RECTIFY_PRINCIPAL_UID_ =#{principal}
+		</if>
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="partUid != null and partUid!='' ">
+			and INSPECT_PART_UID_=#{partUid}
+		</if>
+		<if test="search != null and search!='' ">
+			and (INSPECT_ITEM_NAME_ like concat(concat("%",#{search}),"%")  OR INSPECT_PART_NAME_ like concat(concat("%",#{search}),"%") )
+		</if>
+	</sql>
+
+	<select id="getCheckRecordTotalNum" resultType="int">
+		SELECT COUNT(ID_) FROM T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryCheckRecordSql"/>
+	</select>
+	<resultMap type="java.util.HashMap" id="checkRecordListMap">
+		<id property="id" column="ID_" />
+		<result property="inspectItemUid" column="INSPECT_ITEM_UID_" />
+		<!--<result property="businessKey" column="BUSINESSKEY_" />-->
+		<result property="businessUrl" column="BUSINESS_URL_" />
+		<result property="formUrl" column="FORM_URL_" />
+		<result property="createTime" column="CREATE_TIME_" />
+		<result property="createDate" column="CREATE_DATE_" />
+		<result property="rectifyDeadline" column="RECTIFY_DEADLINE_" />
+		<result property="picture" column="PICTURE_" />
+		<result property="position" column="POSITION_" />
+		<result property="dataType" column="DATA_TYPE_" />
+		<collection property="imgs" column="{parentId=ID_}" javaType="java.util.List"  select="selectTotalPictureList" />
+	</resultMap>
+	<select id="getCheckRecordDatas" resultMap="checkRecordListMap">
+		<if test="dbType == 'mysql'">
+			select SN_ sn,LB_ lb,ID_, ID_ businessKey,INSPECT_ITEM_UID_ ,STATUS_ status,CHECK_TYPE_ checkType,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') CREATE_TIME_,UPDATE_TIME_,DESC_ desc_,DATA_TYPE_,
+			case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+			CREATE_USER_ createUser,FORM_TYPE_ formType,INSPECT_ITEM_NAME_ inspectItem,
+			INSPECT_PART_NAME_ inspectPart,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') CREATE_DATE_,RECTIFY_DEADLINE_,
+			SPECS_ specs, BRAND_ brand, MATERIALS_NAME_ materialsName, QUANTITY_ quantity,
+			'/api_v1/construction/inspect/getCheckRecordById' BUSINESS_URL_,'inspect/add' FORM_URL_,
+			<choose>
+				<when test="formType != null and formType=='measure'">
+					(select USER_NAME_ from ORG_USER where ID_=D.INITIATOR_) checkerName,
+					(select PICTURE_ from ORG_USER where ID_=D.INITIATOR_) PICTURE_,
+					(select POSITION_ from WX_PRO_MEMBER where USER_UID_=D.INITIATOR_ AND PRO_UID_=#{projUid} LIMIT 1) POSITION_,
+				</when>
+				<otherwise>
+					(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) checkerName,
+					(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) PICTURE_,
+					(select POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid} LIMIT 1) POSITION_,
+				</otherwise>
+			</choose>
+			(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) rectifyPrincipal,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=D.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND IS_LIKE_=1) likeCount,
+			(select XMMC_ from WX_PROJECT where ID_=D.PROJ_UID_) projName
+			from  T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+			<include refid="queryCheckRecordSql"/>
+			order by UPDATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY UPDATE_TIME_ DESC) as Rownumver,SN_ sn,LB_ lb,
+			ID_, ID_ businessKey,INSPECT_ITEM_UID_ ,STATUS_ status,CHECK_TYPE_ checkType,convert(varchar(16),CREATE_TIME_,120) CREATE_TIME_,UPDATE_TIME_,DESC_ desc_,DATA_TYPE_,
+			case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) checkerName,CREATE_USER_ createUser,FORM_TYPE_ formType,INSPECT_ITEM_NAME_ inspectItem,
+			INSPECT_PART_NAME_ inspectPart,convert(varchar(16),CREATE_TIME_,23) CREATE_DATE_,RECTIFY_DEADLINE_,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) PICTURE_, SPECS_ specs, BRAND_ brand, MATERIALS_NAME_ materialsName, QUANTITY_ quantity, 
+			'/api_v1/construction/inspect/getCheckRecordById' BUSINESS_URL_,'inspect/add' FORM_URL_,
+			(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) rectifyPrincipal,
+			(select TOP 1 POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid}) POSITION_,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=D.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND IS_LIKE_=1) likeCount,
+			(select XMMC_ from WX_PROJECT where ID_=D.PROJ_UID_) projName, COUNT(1) OVER() AS totalCount
+			from  T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+			<include refid="queryCheckRecordSql"/>
+			) data  where (data.Rownumver between #{start} and #{end})  order by UPDATE_TIME_ desc
+		</if>
+
+	</select>
+
+	<select id="selectTotalPictureList" resultType="java.util.HashMap">
+		select ID_ id,FILE_NAME_ fileName,SUFFIX_ suffix,COMPANY_ company,CREATE_TIME_ createTime from T_ATTACHMENT where PARENT_ID_ = #{parentId}
+		OR PARENT_ID_ IN (SELECT ID_ FROM t_inspect_desc WHERE PARENT_UID_ =#{parentId})
+		order by XTYPE_
+	</select>
+	<sql id="queryTotalSql">
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		AND DATA_TYPE_ = 'inspect'
+	</sql>
+	<!--获取检查总数-->
+	<select id="getCheckRecordTotalCount" resultType="java.util.HashMap">
+		SELECT (SELECT COUNT(ID_) from T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		) totalCount,
+		(SELECT COUNT(D.ID_) FROM t_inspection_plan_det D LEFT JOIN  t_inspection_plan T ON D.PARENT_UID_=T.ID_
+		 WHERE T.PROJ_UID_=#{projUid} AND D.INSPECTOR_UID_ like concat('%', #{userUid}, '%')  AND T.ISSUE_STATUS_='已发布'
+		<choose>
+			<when test="formType != null and formType=='measure'">
+				AND T.LB_='measure'
+			</when>
+			<otherwise>
+				AND T.LB_='quality'
+			</otherwise>
+		</choose>
+		AND (D.TASK_STATUS_ IS NULL OR D.TASK_STATUS_=0)) myWaitingCount,<!--待我检查-->
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		and RECTIFY_PRINCIPAL_UID_=#{userUid} AND STATUS_ = '2') myWaitingRectifyCount, <!--待我整改-->
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		and STATUS_ = '3' AND #{userUid} IN (SELECT USER_UID_ FROM T_INSPECT_USER WHERE PARENT_UID_=D.ID_ AND USER_TYPE_=2)
+		) myWaitingReviewCount, <!--待我复查-->
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		<choose>
+			<when test="formType != null and formType=='measure'">
+				and INITIATOR_=#{userUid}
+			</when>
+			<otherwise>
+				and CREATE_USER_=#{userUid}
+			</otherwise>
+		</choose>
+		) mySubmitCount, <!--我提交的-->
+		(SELECT COUNT(D.ID_) FROM t_inspection_plan_det D LEFT JOIN  t_inspection_plan T ON D.PARENT_UID_=T.ID_
+		WHERE T.PROJ_UID_=#{projUid} AND T.ISSUE_STATUS_='已发布'
+		<choose>
+			<when test="formType != null and formType=='measure'">
+				AND T.LB_='measure'
+			</when>
+			<otherwise>
+				AND T.LB_='quality'
+			</otherwise>
+		</choose>
+		AND (D.TASK_STATUS_ IS NULL OR D.TASK_STATUS_=0)) waitingCheckCount, <!--待检查-->
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		AND STATUS_ = '2' ) waitingRectifyCount, <!--待整改-->
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		AND STATUS_ = '3' ) waitingReviewCount, <!--待复查-->
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<include refid="queryTotalSql"/>
+		AND STATUS_ IN (4,5,6) ) waitingCheckCount <!--已完成-->
+	</select>
+	<!--单条检查记录-->
+	<resultMap type="java.util.HashMap" id="checkRecordObjMap">
+		<id property="id" column="ID_" />
+		<result property="INSPECT_ITEM_UID_" column="INSPECT_ITEM_UID_" />
+		<result property="STATUS_" column="STATUS_" />
+		<result property="DATA_TYPE_" column="DATA_TYPE_" />
+		<result property="formType" column="FORM_TYPE_" />
+		<result property="RECTIFY_DEADLINE_" column="RECTIFY_DEADLINE_" />
+		<result property="DESC_" column="DESC_" />
+		<result property="measureMarker" column="MEASURE_MARKER_" />
+		<result property="gradeLevel" column="GRADE_LEVEL_" />
+		<result property="rectifyPrincipal" column="RECTIFY_PRINCIPAL_" />
+		<result property="takePartType" column="takePartType" />
+		<result property="copyType" column="copyType" />
+		<collection property="imgs" column="{parentId=ID_}" javaType="java.util.List"  select="selectFileList" />
+		<collection property="takePartUsers" column="{parentId=ID_,userType=takePartType}" javaType="java.util.List"  select="selectUsersByParentId" />
+		<collection property="copyUsers" column="{parentId=ID_,userType=copyType}" javaType="java.util.List"  select="selectUsersByParentId" />
+		<collection property="descList" column="{parentId=ID_}" javaType="java.util.List"  select="selectDescListById" />
+	</resultMap>
+	<resultMap type="java.util.HashMap" id="checkRecordObjMapMySql">
+		<id property="id" column="ID_" />
+		<result property="INSPECT_ITEM_UID_" column="INSPECT_ITEM_UID_" />
+		<result property="STATUS_" column="STATUS_" />
+		<result property="DATA_TYPE_" column="DATA_TYPE_" />
+		<result property="formType" column="FORM_TYPE_" />
+		<result property="RECTIFY_DEADLINE_" column="RECTIFY_DEADLINE_" />
+		<result property="DESC_" column="DESC_" />
+		<result property="measureMarker" column="MEASURE_MARKER_" />
+		<result property="gradeLevel" column="GRADE_LEVEL_" />
+		<result property="rectifyPrincipal" column="RECTIFY_PRINCIPAL_" />
+		<result property="takePartType" column="takePartType" />
+		<result property="copyType" column="copyType" />
+		<result property="subscript" column="subscript" />
+		<collection property="imgs" column="{parentId=ID_}" javaType="java.util.List"  select="selectFileList" />
+		<collection property="takePartUsers" column="{parentId=ID_,userType=takePartType}" javaType="java.util.List"  select="selectUsersByParentId" />
+		<collection property="reviewUsers" column="{parentId=ID_,userType=reviewType}" javaType="java.util.List"  select="selectUsersByParentId" />
+		<collection property="reCheckUsers" column="{parentId=ID_,userType=reCheckType}" javaType="java.util.List"  select="selectUsersByParentId" />
+		<collection property="copyUsers" column="{parentId=ID_,userType=copyType}" javaType="java.util.List"  select="selectUsersByParentId" />
+		<collection property="descList" column="{parentId=ID_}" javaType="java.util.List"  select="selectDescListByIdMySql" />
+	</resultMap>
+	<select id="selectUsersByParentId" resultType="java.util.HashMap">
+		select USER_UID_ id,(select USER_NAME_ from ORG_USER where ID_=D.USER_UID_) userName,(select PICTURE_ from ORG_USER where ID_=D.USER_UID_) picture
+		from T_INSPECT_USER D where PARENT_UID_=#{parentId} AND USER_TYPE_ =#{userType}
+	</select>
+	<!--描述resultMap-->
+	<resultMap type="java.util.HashMap" id="descObjMap">
+		<id property="id" column="ID_" />
+		<result property="DESC_" column="DESC_" />
+		<result property="createTime" column="createTime" />
+		<result property="createUserName" column="createUserName" />
+		<result property="picture" column="picture" />
+		<collection property="imgs" column="{parentId=ID_}" javaType="java.util.List"  select="selectFileList" />
+	</resultMap>
+	<select id="selectDescListById" resultMap="descObjMap">
+		select ID_,DESC_,convert(varchar(16),CREATE_TIME_,120) createTime,(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+		(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+		case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as status 
+		from T_INSPECT_DESC D where PARENT_UID_=#{parentId} order by CREATE_TIME_
+	</select>
+	<select id="selectDescListByIdMySql" resultMap="descObjMap">
+		select ID_,DESC_,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+		RECTIFY_DEADLINE_,
+		(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+		(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture, 
+		STATUS_  as status
+		from T_INSPECT_DESC D where PARENT_UID_=#{parentId} order by CREATE_TIME_
+	</select>
+	<!-- 获取检查记录详情信息 -->
+	<select id="getCheckRecordById" resultMap="checkRecordObjMap">
+		SELECT ID_,INSPECT_ITEM_UID_ ,STATUS_,INSPECT_PART_UID_,0 AS  takePartType,1 AS copyType,
+		case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '6' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+		case CHECK_TYPE_ when 'quality' then '质量' when 'safety' then '安全' else '' end as checkType,SN_ sn, SPECS_ specs, BRAND_ brand, MATERIALS_NAME_ materialsName, QUANTITY_ quantity, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createDate,
+			(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND USER_UID_=#{userUid} LIMIT 1) isLike,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime,
+			(select ID_ from T_ATTACHMENT where parent_id_ = D.INSPECT_DRAWING_UID_ LIMIT 1) pictureId,
+			concat('整改负责人',(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_)) subscript,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(16),CREATE_TIME_,23) createDate,
+			(select top 1 IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND USER_UID_=#{userUid}) isLike,
+			convert(varchar(16),CREATE_TIME_,120) createTime,
+			(select top 1 ID_ from T_ATTACHMENT where parent_id_ = D.INSPECT_DRAWING_UID_) pictureId,
+			'整改负责人:'+(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) subscript,
+		</if>
+		LB_,OVERDUE_REASON_,
+		DATA_TYPE_,DESC_ description,POINTS_LEVEL_,RECTIFY_DEADLINE_,RECTIFY_PRINCIPAL_UID_,EVALUATE_,FORM_TYPE_,INSPECT_DRAWING_UID_,
+		INSPECT_ITEM_NAME_,INSPECT_ITEM_NAME_ subTitle,INSPECT_PART_NAME_,INSPECT_PART_NAME_ title,DESC_,MEASURE_MARKER_,
+		PROCESS_ID_ processId, INSPECT_ID_ inspectId,
+		(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+		(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) RECTIFY_PRINCIPAL_,CREATE_USER_ createUser,
+		(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+		(select NAME_ from T_INSPECT_ITEM where ID_=D.INSPECT_ITEM_UID_) inspectItemName,
+		(select GRADE_LEVEL_ from T_INSPECT_ITEM where ID_=D.INSPECT_ITEM_UID_) GRADE_LEVEL_,
+		(select XMMC_ from WX_PROJECT where ID_=D.PROJ_UID_) project
+		from T_INSPECT_RECORD D where ID_ = #{id}
+	</select>
+	<!-- 获取检查记录详情信息(mysql) -->
+	<select id="getCheckRecordByIdMySql" resultMap="checkRecordObjMapMySql">
+		SELECT ID_,INSPECT_ITEM_UID_ ,STATUS_,INSPECT_PART_UID_,0 AS  takePartType,1 AS copyType, 2 AS reviewType,3 AS reCheckType,
+		FIRST_STATUS_ firstStatus,
+		case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '6' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+		CHECK_TYPE_  as checkType,SN_ sn, SPECS_ specs, BRAND_ brand, MATERIALS_NAME_ materialsName, QUANTITY_ quantity,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createDate,
+			(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND USER_UID_=#{userUid} LIMIT 1) isLike,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime,
+			(select ID_ from T_ATTACHMENT where parent_id_ = D.INSPECT_DRAWING_UID_ LIMIT 1) pictureId,
+			concat('整改负责人',(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_)) subscript,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(16),CREATE_TIME_,23) createDate,
+			(select top 1 IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND USER_UID_=#{userUid}) isLike,
+			convert(varchar(16),CREATE_TIME_,120) createTime,
+			(select top 1 ID_ from T_ATTACHMENT where parent_id_ = D.INSPECT_DRAWING_UID_) pictureId,
+			'整改负责人:'+(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) subscript,
+		</if>
+		CASE WHEN INITIATOR_ IS NOT NULL THEN (select PICTURE_ from ORG_USER where ID_=D.INITIATOR_)
+		ELSE (select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) END picture,
+		CASE WHEN INITIATOR_ IS NOT NULL THEN (select USER_NAME_ from ORG_USER where ID_=D.INITIATOR_)
+		ELSE (select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) END createUserName,
+		CREATE_USER_ createUser,
+		INITIATOR_ initiator,
+		LB_,OVERDUE_REASON_,PLAN_UID_ planUid,PLANDET_UID_ plandetUid,
+		DATA_TYPE_,DESC_ description,POINTS_LEVEL_,RECTIFY_DEADLINE_,RECTIFY_PRINCIPAL_UID_,EVALUATE_,FORM_TYPE_,INSPECT_DRAWING_UID_,
+		INSPECT_ITEM_NAME_,INSPECT_ITEM_NAME_ subTitle,INSPECT_PART_NAME_,INSPECT_PART_NAME_ title,DESC_,MEASURE_MARKER_,
+		PROCESS_ID_ processId, INSPECT_ID_ inspectId,
+		CHECK_REQUIRE_ checkRequire,
+		(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) RECTIFY_PRINCIPAL_,
+		(select NAME_ from T_INSPECT_ITEM where ID_=D.INSPECT_ITEM_UID_) inspectItemName,
+		(select GRADE_LEVEL_ from T_INSPECT_ITEM where ID_=D.INSPECT_ITEM_UID_) GRADE_LEVEL_,
+		(select XMMC_ from WX_PROJECT where ID_=D.PROJ_UID_) project
+		from T_INSPECT_RECORD D where ID_ = #{id}
+	</select>
+
+	<!--批量删除检查记录-->
+	<delete id="deleteById">
+		delete from  T_INSPECT_RECORD where ID_ =#{id}
+	</delete>
+
+	<!--获取检查项列表数据-->
+	<select id="getCheckItemStandardsByParentId" resultType="com.jrsoft.business.modules.construction.domain.CheckItem">
+		select ID_ id, ItemName itemName,ItemNO itemNo, ItemNO sign,#{parentUid} parentUid,lb_ lb,type_ type,
+			<!-- (case WHEN (SELECT COUNT(ID_) FROM T_JCBZ where  ItemNO like concat('',D.ItemNO,'%') AND LENGTH(ItemNO)= LENGTH(D.ItemNO)+2 )=0 THEN 'true' ELSE 'false' END ) leaf -->
+			(case WHEN (SELECT COUNT(ID_) FROM T_JCBZ where PARENT_ID_ = D.id_ )=0 THEN 'true' ELSE 'false' END ) leaf
+		from T_JCBZ D
+		<choose>
+			<when test="parentUid != null and parentUid=='root'">
+				where PARENT_ID_ = 'root'
+			</when>
+			<otherwise>
+				<!-- where  ItemNO like concat('',#{parentUid},'%') AND LENGTH(ItemNO)= LENGTH(#{parentUid})+2 -->
+				where PARENT_ID_ = #{parentUid}
+			</otherwise>
+		</choose>
+
+		order by ItemNO
+
+	</select>
+
+	<!--获取数据-->
+	<select id="getCheckItemFromStandardDet" resultType="com.jrsoft.business.modules.construction.domain.CheckItem">
+		select CHECK_REQUIRE_ checkRequire, NAME_ itemName, LB_ lb, TYPE_ type, SIGN_ sign 
+		from T_INSPECT_COMPANY D where PARENT_ID_ =#{parentUid}
+	</select>
+
+	<select id="getCheckItemFromStandarCount" resultType="com.jrsoft.business.modules.construction.domain.CheckItem">
+		select ID_ id,NAME_ itemName,SORT_ sort
+		<if test="sqlTableName == 'T_INSPECT_COMPANY'">
+			,PROJ_LX projectType, PROJ_PURPOSE yeTai 
+		</if>
+		from ${sqlTableName} D where COMPANY_ = #{companyUid,jdbcType=VARCHAR}
+		<if test="sign != null and sign != ''">
+			AND SIGN_ =#{sign} 
+		</if>
+		<if test="projUid != null and projUid != '' ">
+			AND PROJ_UID_=#{projUid}
+		</if>
+		<if test="sqlTableName == 'T_INSPECT_ITEM'">
+			AND FORM_TYPE_ = #{formType}
+		</if>
+		
+		<!-- <if test="parentId == 'root' ">
+			AND PARENT_ID_ = #{parentId} and NAME_ = #{itemName}
+		</if> -->
+		<choose>
+			<when test="parentId == 'root'">
+				AND PARENT_ID_ = #{parentId} and NAME_ = #{itemName}
+			</when>
+			<otherwise>
+				AND PARENT_ID_ = #{parentId}
+			</otherwise>
+		</choose>
+	</select>
+
+	<!--获取检查统计数量数据-->
+	<select id="getStatisticCountData" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT (SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			AND DATA_TYPE_='inspect'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_,'%Y-%m') =#{statisticsDate}
+			</if>
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if> ) totalNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} AND DATA_TYPE_='inspect'
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			AND (STATUS_=4 OR STATUS_=5)
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_,'%Y-%m') =#{statisticsDate}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if> ) completeNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			AND DATA_TYPE_='inspect' AND STATUS_=4
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_,'%Y-%m') =#{statisticsDate}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if> ) completeOnTimeNum
+		</if>
+
+		<if test="dbType == 'mssql'">
+			SELECT totalNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			AND DATA_TYPE_='inspect'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if>
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if> ),
+			completeNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} AND DATA_TYPE_='inspect'
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			AND (STATUS_=4 OR STATUS_=5)
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if> ),
+			completeOnTimeNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			AND DATA_TYPE_='inspect' AND STATUS_=4
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if> )
+		</if>
+
+
+	</select>
+
+	<!--获取检查统计图表数据-->
+	<select id="getStatisticChartsData" resultType="java.util.HashMap">
+		SELECT COUNT(ID_) totalNum,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') dataDate,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(10),CREATE_TIME_,120) dataDate,
+		</if>
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='inspect' AND (STATUS_=4 OR STATUS_=5)
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') = DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d')
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(10),CREATE_TIME_,120)= convert(varchar(10),D.CREATE_TIME_,120)
+		</if>
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType !=null and checkType != ''">
+			AND CHECK_TYPE_=#{checkType}
+		</if>
+		 ) completeNum
+		FROM T_INSPECT_RECORD D WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<include refid="queryDataSql"/>
+		AND DATA_TYPE_='inspect'
+		<if test="dbType == 'mysql'">
+			GROUP BY DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d')
+		</if>
+		<if test="dbType == 'mssql'">
+			GROUP BY convert(varchar(10),CREATE_TIME_,120)
+		</if>
+
+	</select>
+	<sql id="queryDataSql">
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') = #{statisticsDate}
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		</if>
+		<if test="checkType !=null and checkType != ''">
+			AND CHECK_TYPE_=#{checkType}
+		</if>
+	</sql>
+	<!--获取检查统计表格数据-->
+	<select id="getStatisticTableData" resultType="java.util.HashMap">
+		SELECT COUNT(ID_) totalNum, INSPECT_PART_NAME_ partName,
+	  	(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+	  	AND (STATUS_=4 OR STATUS_=5) AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') completeNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND PROJ_TYPE_=0 AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') generalNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND PROJ_TYPE_=0 AND (STATUS_=4 OR STATUS_=5) AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') generalCompleteNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND PROJ_TYPE_=1 AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') primaryNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND PROJ_TYPE_=1 AND (STATUS_=4 OR STATUS_=5) AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') primaryCompleteNum
+		FROM T_INSPECT_RECORD D WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect' GROUP BY INSPECT_PART_UID_,INSPECT_PART_NAME_
+	</select>
+
+	<!-- 获取检查记录中检查部位数据 -->
+	<select id="getCheckPartDatas" resultType="java.util.HashMap">
+		SELECT INSPECT_PART_NAME_ partName,INSPECT_PART_UID_ id from T_INSPECT_RECORD D where PROJ_UID_ = #{projUid}
+		AND INSPECT_PART_UID_ IS NOT NULL
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		GROUP BY INSPECT_PART_UID_
+	</select>
+
+	<!-- PC端获取部位树结构数据-->
+	<select id="getPartTree" resultType="java.util.HashMap">
+		SELECT ID_ id, NAME_ label, SORT_ sort,
+		(SELECT COUNT(ID_) FROM T_WORK_PART WHERE PARENT_UID_=a.ID_) childCount,
+		(select top(1)ID_ from T_DRAWING where AREA_UID_ = a.id_) drawingId,
+		(select top(1)MAP_DATA_ from T_DRAWING where AREA_UID_ = a.id_) mapData,
+		(select top(1)MARKER_DATA_ from T_DRAWING where AREA_UID_ = a.id_) markerData,
+		(select top(1)ID_ from T_ATTACHMENT where parent_id_ = (select top(1)ID_ from T_DRAWING where AREA_UID_ = a.id_)) fileId
+		from T_WORK_PART a where company_ = #{companyUid} and PARENT_UID_ = #{parentUid}
+		<if test="projUid != null ">
+			and PROJ_UID_  = #{projUid}
+		</if>
+
+		and (IF_DELETE_ = 0 or IF_DELETE_ is null)  order by sort_
+	</select>
+	
+	
+	<!-- PC端获取部位树结构数据(MySql)-->
+	<select id="getPartTreeMySql" resultType="java.util.HashMap">
+		SELECT ID_ id, NAME_ label, SORT_ sort, YE_TAI_ yeTai, CODE_ code,SN_ sn,#{parentName} parentName,LEVEL_ level,
+		(SELECT COUNT(ID_) FROM T_WORK_PART WHERE PARENT_UID_=a.ID_) childCount,
+		(select ID_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) drawingId,
+		(select MAP_DATA_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) mapData,
+		(select MARKER_DATA_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1) markerData,
+		(select ID_ from T_ATTACHMENT where parent_id_ = (select ID_ from T_DRAWING where AREA_UID_ = a.id_ LIMIT 1)  LIMIT 1 ) fileId
+		from T_WORK_PART a where company_ = #{companyUid} and PARENT_UID_ = #{parentUid}
+		<if test="projUid != null ">
+			and PROJ_UID_  = #{projUid}
+		</if>
+		<if test="purpose != null and purpose !=''">
+			AND YE_TAI_ = #{purpose}
+		</if>
+		and (IF_DELETE_ = 0 or IF_DELETE_ is null)  order by sort_
+	</select>
+
+	<!--导入-->
+	<insert id="insertCheckRecordBatch" parameterType="java.util.List">
+		insert into T_INSPECT_RECORD (ID_,PROJ_UID_,INSPECT_ITEM_UID_,DESC_, CHECK_TYPE_,DATA_TYPE_,INSPECT_ITEM_NAME_,FORM_TYPE_,MEASURE_MARKER_,MIN_SAMPLE_,
+		MEASURE_UID_,STATUS_,PROJ_TYPE_,INSPECT_DRAWING_UID_,INSPECT_PART_UID_,INSPECT_PART_NAME_,CHECK_REQUIRE_,RECTIFY_PRINCIPAL_UID_,LB_,SORT_,SN_,PLAN_UID_,
+		PLANDET_UID_,CREATE_USER_,CREATE_TIME_,COMPANY_,SUB_COMPANY_)
+		values
+		<foreach collection="dataList" item="item" index="index" separator=",">
+			(#{item.id,jdbcType=VARCHAR},#{item.projUid,jdbcType=VARCHAR},#{item.inspectItemUid},#{item.desc}, #{item.checkType,jdbcType=VARCHAR}, #{item.dataType},
+			#{item.inspectItemName}, #{item.formType},#{item.measureMarker},#{item.minSample},#{item.measureUid},#{item.status},#{item.projType},
+			#{item.inspectDrawingUid},#{item.inspectPartUid},#{item.inspectPartName},#{item.checkRequire},#{item.rectifyPrincipalUid},#{item.lb},#{item.sort},
+			#{item.sn},#{item.planUid},#{item.plandetUid},
+			#{item.createUser,jdbcType=VARCHAR},#{item.createTime,jdbcType=TIMESTAMP},#{item.company,jdbcType=VARCHAR},#{item.company,jdbcType=VARCHAR})
+		</foreach>
+	</insert>
+
+	<update id="updateCheckRecord">
+		UPDATE T_INSPECT_RECORD set MEASURE_VALUE_=#{obj.measureValue},DESIGN_VALUE_=#{obj.designValue} WHERE MEASURE_UID_ =#{markerId}
+
+	</update>
+
+	<!-- 获取测点包含的信息 -->
+	<select id="getMeasurePoitData_bak" resultType="java.util.HashMap">
+		SELECT ID_ id,INSPECT_ITEM_ inspectItemName, MEASURE_VALUE_ measureValue,DESIGN_VALUE_ designValue,PASS_ pass,
+		(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=D.CREATE_USER_) createUser,PARENT_UID_ parentUid,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(16),CREATE_TIME_,120) createTime,
+		</if>
+		(SELECT NAME_ FROM T_INSPECT_ITEM WHERE ID_=D.INSPECT_ITEM_UID_) itemName from t_inspection_plan_det D where MEASURE_UID_ = #{uuid}
+	</select>
+	<!-- 获取测点包含的信息 -->
+	<select id="getMeasurePoitData" resultType="java.util.HashMap">
+		SELECT ID_ id,INSPECT_ITEM_NAME_ inspectItemName, MEASURE_VALUE_ measureValue,DESIGN_VALUE_ designValue,PASS_ pass,LB_ lb,CHECK_REQUIRE_ checkRequire,
+		RECTIFY_PRINCIPAL_UID_ rectifyPrincipalUid,DATA_TYPE_ dataType,
+		CREATE_USER_ createUserUid,
+		(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=D.CREATE_USER_) createUser,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(16),CREATE_TIME_,120) createTime,
+		</if>
+		(SELECT NAME_ FROM T_INSPECT_ITEM WHERE ID_=D.INSPECT_ITEM_UID_) itemName from T_INSPECT_RECORD D where MEASURE_UID_ = #{uuid}
+	</select>
+	<!-- 获取权限人员 -->
+	<select id="getAuthorityMember" resultType="java.util.HashMap">
+		SELECT D.USER_NAME_ userName,D.USER_UID_ id,D.ROLE_ID_ roleId,U.PICTURE_ picture,
+		(select depart_name_ from org_depart where id_=P.depart_uid_) depart_name_,
+		(select position_name_ from org_position where id_=P.POSITION_UID_) position_name_
+		from wx_pro_member D
+		LEFT JOIN ORG_USER U ON D.USER_UID_=U.ID_ left join org_position_user P on D.user_uid_=P.user_uid_
+		where D.PRO_UID_ = #{projUid}
+		AND
+		<foreach collection="roleIds" index="index" item="item" open="(" separator="OR" close=")">
+			D.ROLE_ID_ like concat('%',#{item},'%')
+		</foreach>
+	</select>
+	<!--获取实测统计数量数据-->
+	<select id="getMeasureCountData" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT (SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			and FORM_TYPE_ ='measure'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) totalNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) measuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) passNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DATA_TYPE_='inspect'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if>
+			) rectifyNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			and FORM_TYPE_ ='measure' AND DATA_TYPE_='inspect' AND (STATUS_=4 OR STATUS_=5)
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) completeNum
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT totalNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			and FORM_TYPE_ ='measure'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> ),
+			measuredNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> ),
+			passNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> ),
+			rectifyNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DATA_TYPE_='inspect'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if>
+			),
+			completeNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			and FORM_TYPE_ ='measure' AND DATA_TYPE_='inspect' AND (STATUS_=4 OR STATUS_=5)
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> )
+		</if>
+
+
+	</select>
+
+	<!--获取实测统计图表数据-->
+	<select id="getMeasureChartsData" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT COUNT(ID_) totalNum, DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') dataDate,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND (STATUS_=4 OR STATUS_=5)
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') = DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d') ) completeNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND DESIGN_VALUE_ IS NOT NULL AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') = DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d') ) measuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') = DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d') ) passNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND DATA_TYPE_='inspect' AND DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') = DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d') ) rectifyNum
+			FROM T_INSPECT_RECORD D WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			and FORM_TYPE_ ='measure'
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}  GROUP BY DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d')
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT COUNT(ID_) totalNum, convert(varchar(10),CREATE_TIME_,120) dataDate,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND (STATUS_=4 OR STATUS_=5)
+			AND convert(varchar(10),CREATE_TIME_,120)= convert(varchar(10),D.CREATE_TIME_,120) ) completeNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND DESIGN_VALUE_ IS NOT NULL AND convert(varchar(10),CREATE_TIME_,120)= convert(varchar(10),D.CREATE_TIME_,120) ) measuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 AND convert(varchar(10),CREATE_TIME_,120)= convert(varchar(10),D.CREATE_TIME_,120) ) passNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure' AND DATA_TYPE_='inspect' AND convert(varchar(10),CREATE_TIME_,120)= convert(varchar(10),D.CREATE_TIME_,120) ) rectifyNum
+			FROM T_INSPECT_RECORD D WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			and FORM_TYPE_ ='measure'
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}  GROUP BY convert(varchar(10),CREATE_TIME_,120)
+		</if>
+
+	</select>
+	<sql id="queryMeasureCount">
+		WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+		AND INSPECT_PART_UID_=D.INSPECT_PART_UID_
+	</sql>
+	<!--获取检查统计表格数据-->
+	<select id="getMeasureTableData" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT INSPECT_PART_NAME_ partName,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND DATA_TYPE_='inspect' ) totalNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND (STATUS_=4 OR STATUS_=5) ) totalCompleteNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND DATA_TYPE_='inspect' AND PROJ_TYPE_=0 ) generalTotalNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=1 AND DATA_TYPE_='inspect' ) primaryTotalNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=0 AND (STATUS_=4 OR STATUS_=5) ) generalCompleteNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=1 AND (STATUS_=4 OR STATUS_=5) ) primaryCompleteNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND DESIGN_VALUE_ IS NOT NULL ) measuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 ) measuredPassNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=0 AND DESIGN_VALUE_ IS NOT NULL ) generalMeasuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=0 AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 ) generalMeasuredPassNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=1 AND DESIGN_VALUE_ IS NOT NULL ) primaryMeasuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD <include refid="queryMeasureCount"/> AND PROJ_TYPE_=1 AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 ) primaryMeasuredPassNum
+			FROM T_INSPECT_RECORD D WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} AND FORM_TYPE_ ='measure' GROUP BY INSPECT_PART_UID_
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT INSPECT_PART_NAME_ partName,
+			totalNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}  AND DATA_TYPE_='inspect' AND FORM_TYPE_ ='measure' AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			totalCompleteNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND (STATUS_=4 OR STATUS_=5) AND  FORM_TYPE_ ='measure' AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			generalTotalNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=0  AND DATA_TYPE_='inspect' AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			primaryTotalNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=1  AND DATA_TYPE_='inspect' AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			generalCompleteNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=0 AND (STATUS_=4 OR STATUS_=5) AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			primaryCompleteNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=1 AND (STATUS_=4 OR STATUS_=5) AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			measuredNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND DESIGN_VALUE_ IS NOT NULL AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			measuredPassNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}  AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			generalMeasuredNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=0 AND DESIGN_VALUE_ IS NOT NULL AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			generalMeasuredPassNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=0 AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			primaryMeasuredNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=1 AND DESIGN_VALUE_ IS NOT NULL AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ ),
+			primaryMeasuredPassNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid} AND FORM_TYPE_ ='measure' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND PROJ_TYPE_=1 AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1 AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ )
+			FROM T_INSPECT_RECORD D WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND FORM_TYPE_ ='measure' GROUP BY INSPECT_PART_UID_,INSPECT_PART_NAME_
+		</if>
+
+
+	</select>
+
+	<select id="getDrawingMeasureData" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT (SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE INSPECT_DRAWING_UID_ = #{id} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure') totalNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE INSPECT_DRAWING_UID_ = #{id} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL) measuredNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE INSPECT_DRAWING_UID_ = #{id} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1) passNum
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT totalNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE INSPECT_DRAWING_UID_ = #{id} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'),
+			measuredNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE INSPECT_DRAWING_UID_ = #{id} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL),
+			passNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE INSPECT_DRAWING_UID_ = #{id} AND PROJ_UID_ = #{projUid} and FORM_TYPE_ ='measure'
+			AND DESIGN_VALUE_ IS NOT NULL AND PASS_=1)
+		</if>
+
+
+	</select>
+
+	<!--批量删除测点-->
+	<delete id="batchDeletePoitRecord">
+		delete from <include refid='public.model' /> T_INSPECT_RECORD where MEASURE_UID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</delete>
+
+	<!--获取微信端检查统计数量数据-->
+	<select id="getStatisticCountDataOfWechat" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT (SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+			AND RECTIFY_DEADLINE_ <![CDATA[< ]]> DATE_FORMAT(now(), '%Y-%m-%d') AND STATUS_ NOT IN (4,5) AND PROJ_UID_ = #{projUid}
+			AND DATA_TYPE_='inspect'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if>
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if>
+			) exceedUnFinshNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND RECTIFY_DEADLINE_ <![CDATA[>= ]]> DATE_FORMAT(now(), '%Y-%m-%d') AND STATUS_ NOT IN (4,5) AND PROJ_UID_ = #{projUid} AND DATA_TYPE_='inspect'
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if>
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) unExceedUnFinshNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if>
+			AND DATA_TYPE_='inspect' AND STATUS_=4
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) completeOnTimeNum,
+			(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="checkType != null and checkType!='' ">
+				and CHECK_TYPE_ =#{checkType}
+			</if>
+			AND DATA_TYPE_='inspect' AND STATUS_=5
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+			</if> ) completeUnOnTimeNum
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT exceedUnFinshNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+			AND RECTIFY_DEADLINE_ &lt; convert(varchar(10),getdate(),120) AND STATUS_ NOT IN (4,5) AND PROJ_UID_ = #{projUid}
+			AND DATA_TYPE_='inspect'
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if>
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if><!--超期未完成-->
+			),
+			unExceedUnFinshNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND RECTIFY_DEADLINE_ <![CDATA[>= ]]> convert(varchar(10),getdate(),120) AND STATUS_ NOT IN (4,5) AND PROJ_UID_ = #{projUid} AND DATA_TYPE_='inspect'
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> ),<!--未超期未完成-->
+			completeOnTimeNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			AND DATA_TYPE_='inspect' AND STATUS_=4
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> ),
+			completeUnOnTimeNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+			<if test="formType != null and formType!='' ">
+				and FORM_TYPE_ =#{formType}
+			</if>
+			AND DATA_TYPE_='inspect' AND STATUS_=5
+			<if test="statisticsDate != null and statisticsDate!='' ">
+				AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+			</if> )
+		</if>
+
+
+	</select>
+
+	<!--获取检查统计检查人数据-->
+	<select id="getCheckerStatistictData" resultType="java.util.HashMap">
+		SELECT (SELECT USER_NAME_ FROM ORG_USER WHERE ID_=D.CREATE_USER_) checkerName,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE DATA_TYPE_='inspect'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate}
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		</if>
+		AND STATUS_ IN(4,5) AND PROJ_UID_ = #{projUid} AND CREATE_USER_=D.CREATE_USER_) destroyNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE DATA_TYPE_='record'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		AND PROJ_UID_ = #{projUid} AND CREATE_USER_=D.CREATE_USER_) recordNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE DATA_TYPE_='inspect'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		AND PROJ_UID_ = #{projUid} AND CREATE_USER_=D.CREATE_USER_) inspectNum
+		FROM T_INSPECT_RECORD D WHERE PROJ_UID_ = #{projUid}
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		AND 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		GROUP BY CREATE_USER_
+
+	</select>
+
+	<select id="getRectifyStatistictData" resultType="java.util.HashMap">
+		SELECT (SELECT USER_NAME_ FROM ORG_USER WHERE ID_=D.RECTIFY_PRINCIPAL_UID_) rectifyName,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE DATA_TYPE_='inspect'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		AND STATUS_ IN(4,5) AND PROJ_UID_ = #{projUid} AND RECTIFY_PRINCIPAL_UID_=D.RECTIFY_PRINCIPAL_UID_) destroyNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE DATA_TYPE_='record'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		AND PROJ_UID_ = #{projUid} AND RECTIFY_PRINCIPAL_UID_=D.RECTIFY_PRINCIPAL_UID_) recordNum,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE DATA_TYPE_='inspect'
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		AND PROJ_UID_ = #{projUid} AND RECTIFY_PRINCIPAL_UID_=D.RECTIFY_PRINCIPAL_UID_) inspectNum
+		FROM T_INSPECT_RECORD D WHERE PROJ_UID_ = #{projUid}
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="dbType == 'mysql'">
+			AND DATE_FORMAT(CREATE_TIME_, '%Y-%m') =#{statisticsDate} 
+		</if>
+		<if test="dbType == 'mssql'">
+			AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} 
+		</if>
+		GROUP BY RECTIFY_PRINCIPAL_UID_
+
+	</select>
+
+	<!--导出检查记录-->
+	<select id="exportCheckRecord" resultMap="checkRecordMap">
+		select SN_ sn,ID_, STATUS_ status,CHECK_TYPE_ checkType,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') CREATE_TIME_,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') CREATE_DATE_,
+			(select POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid} LIMIT 1) POSITION_,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(16),CREATE_TIME_,120) CREATE_TIME_,
+			convert(varchar(16),CREATE_TIME_,23) CREATE_DATE_,
+		(select TOP 1 POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid}) POSITION_,
+		</if>
+		UPDATE_TIME_,DESC_ desc_,DATA_TYPE_,
+		case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+		(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) checkerName,CREATE_USER_ createUser,FORM_TYPE_ formType,INSPECT_ITEM_NAME_ inspectItem,
+		INSPECT_PART_NAME_ inspectPart, RECTIFY_DEADLINE_,
+		(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) PICTURE_,
+		(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) rectifyPrincipal,
+		(select XMMC_ from WX_PROJECT where ID_=D.PROJ_UID_) projName 
+		from  T_INSPECT_RECORD D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+		<!--<choose>-->
+			<!--<when test="isCompanyAdmin">-->
+				<!--and 1 = 1-->
+			<!--</when>-->
+			<!--<otherwise>-->
+				<!--and (CREATE_USER_=#{userUid} OR RECTIFY_PRINCIPAL_UID_=#{userUid} OR #{userUid} IN (SELECT USER_UID_ FROM T_INSPECT_USER WHERE PARENT_UID_=D.ID_))-->
+			<!--</otherwise>-->
+		<!--</choose>-->
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		<if test="status != null and status!='' and status!='finish' ">
+			and STATUS_ =#{status}
+		</if>
+		<if test="status != null and status=='finish' ">
+			and STATUS_ IN (4,5)
+		</if>
+		<if test="dataType != null and dataType!='' ">
+			and DATA_TYPE_ =#{dataType}
+		</if>
+		<if test="principal != null and principal!='' ">
+			and RECTIFY_PRINCIPAL_UID_ =#{principal}
+		</if>
+		<if test="formType != null and formType!='' ">
+			and FORM_TYPE_ =#{formType}
+		</if>
+		<if test="partUid != null and partUid!='' ">
+			and INSPECT_PART_UID_=#{partUid}
+		</if>
+		<if test="search != null and search!='' ">
+			<if test="dbType == 'mysql'">
+				and (INSPECT_ITEM_NAME_ like concat('%', #{search}, '%') OR INSPECT_PART_NAME_ like concat('%', #{search}, '%'))
+			</if>
+			<if test="dbType == 'mssql'">
+				and (INSPECT_ITEM_NAME_ like '%'+#{search}+'%' OR INSPECT_PART_NAME_ like '%'+#{search}+'%')
+			</if>
+		</if>
+		 order by UPDATE_TIME_ desc
+	</select>
+
+	<!--监管版检查统计-->
+	<select id="getStatisticCountDataForSupervise" resultType="java.util.HashMap">
+		SELECT newProblemNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND DATA_TYPE_='inspect' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND FORM_TYPE_='inspect'
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),
+		cancelNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND DATA_TYPE_='inspect' AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate} AND FORM_TYPE_='inspect'
+		AND STATUS_ IN (4,5)
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--销项数-->
+		onTimeCancelNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_=4
+		AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),
+		passCancelNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ IN (4,5)
+		AND (PASS_ <![CDATA[!= ]]> 0 OR PASS_ IS NULL)
+		AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),
+		unAssignNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ =1
+		AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--未指派数-->
+		unectifyNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ =2
+		AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--待整改数-->
+		unCancelNum=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ =3
+		AND convert(varchar(7),CREATE_TIME_,120) =#{statisticsDate}
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--全部数据-->
+		newProblemNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect'
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),
+		cancelNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect' AND STATUS_ IN (4,5)
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--销项数-->
+		onTimeCancelNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_=4
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),
+		passCancelNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ IN (4,5)
+		AND (PASS_ <![CDATA[!= ]]> 0 OR PASS_ IS NULL)
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),
+		unAssignNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ =1
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--未指派数-->
+		unectifyNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ =2
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		),<!--待整改数-->
+		unCancelNumTotal=(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE COMPANY_ = #{companyUid}
+		AND FORM_TYPE_='inspect' AND DATA_TYPE_='inspect' AND STATUS_ =3
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		 )
+
+	</select>
+
+	<!--描述resultMap-->
+	<resultMap type="java.util.HashMap" id="HeatMapDataMap">
+		<id property="id" column="ID_" />
+		<result property="projName" column="XMMC_" />
+		<result property="location" column="ADDR_LOCATION_" />
+		<result property="addrName" column="ADDR_NAME_" />
+		<result property="checkType" column="CHECK_TYPE_" />
+		<collection property="count" column="{projUid=ID_,checkType=CHECK_TYPE_}" javaType="int"  select="selectProjInspectNum" />
+	</resultMap>
+	<select id="getInspectHeatMapData" resultMap="HeatMapDataMap">
+		select ID_, XMMC_, ADDR_LOCATION_, ADDR_NAME_,#{checkType} AS CHECK_TYPE_
+		from WX_PROJECT  where COMPANY_ = #{companyUid} AND ADDR_LOCATION_ IS  NOT null
+		and (IF_DELETE_ = 0 or IF_DELETE_ is null)
+
+	</select>
+	<select id="selectProjInspectNum" resultType="int">
+		SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		AND DATA_TYPE_='inspect'  AND FORM_TYPE_='inspect'
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+	</select>
+
+	<select id="getInspectChartData" resultType="java.util.HashMap">
+		SELECT COUNT(ITEM_NAME_) countNum,ITEM_NAME_ itemName FROM (
+		SELECT CASE WHEN dbo.IndexOf(INSPECT_ITEM_NAME_,'-',2)=0 THEN INSPECT_ITEM_NAME_ ELSE left(INSPECT_ITEM_NAME_,dbo.IndexOf(INSPECT_ITEM_NAME_,'-',2)) END ITEM_NAME_
+		FROM T_INSPECT_RECORD WHERE COMPANY_=#{companyUid}
+		<if test="checkType != null and checkType!='' ">
+			and CHECK_TYPE_ =#{checkType}
+		</if>
+		AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') data WHERE ITEM_NAME_ IS NOT NULL GROUP BY ITEM_NAME_
+	</select>
+	
+	
+	<!-- 获取企业库目录数据 -->
+	<select id="getCheckItemEnterprise" resultType="com.jrsoft.business.modules.construction.domain.CheckItem" >
+		select ID_ id, NAME_ itemName, LB_ lb, MIN_SAMPLE_ minSample, 
+		<if test="parentUid == 'root'">
+			#{parentUid} parentUid, 
+		</if>
+		<if test="parentUid != 'root'">
+			SIGN_ parentUid, 
+		</if>
+		PROJ_TYPE_ projType, 
+		SORT_ sort, TYPE_ type, SIGN_ sign, 
+		(case WHEN (SELECT COUNT(ID_) FROM t_inspect_company where  (SIGN_ like concat('',D.SIGN_,'%') AND LENGTH(SIGN_)= LENGTH(D.SIGN_)+2 or PARENT_ID_ = #{id})
+		AND COMPANY_ = #{companyUid} 
+		
+		<if test="projType != null and projType != null">
+			AND PROJ_LX like concat('%', #{projType}, '%')  
+		</if>
+		<if test="projPurpose != null and projPurpose != null">
+			AND PROJ_PURPOSE like concat('%', #{projPurpose}, '%')    
+		</if>
+		AND LB_ != '检查项')=0 THEN 'true' ELSE 'false' END ) leaf
+		from T_INSPECT_COMPANY D where COMPANY_ = #{companyUid} 
+		
+		
+		<if test="projType != null and projType != null">
+			AND PROJ_LX like concat('%', #{projType}, '%')  
+		</if>
+		<if test="projPurpose != null and projPurpose != null">
+			 AND PROJ_PURPOSE like concat('%', #{projPurpose}, '%')  
+		</if>
+		<if test="type != null and type!='' ">
+			and TYPE_ =#{type}
+		</if>
+		<choose>
+			<when test="parentUid != null and parentUid=='root'">
+				and LB_ != '检查项' and PARENT_ID_ = 'root'
+			</when>
+			<otherwise>
+				and (SIGN_ like concat('',#{parentUid},'%') AND LENGTH(SIGN_)= LENGTH(#{parentUid})+2 or PARENT_ID_ = #{id})
+			</otherwise>
+		</choose>
+
+		order by SIGN_
+	</select>
+	
+	
+	<!-- 获取检查权限人员数据 -->
+	<select id="getUserPermission" resultType="java.util.HashMap" >
+		select USER_UID_ARR_ userUidArr,ID_ id,ROLE_ARR_ roleArr from T_INSPECT_USER where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+		<if test="type != null and type != '' ">
+			and TYPE_ = #{type}
+		</if>
+		AND USER_TYPE_ =#{userType}
+	</select>
+	
+	
+	<!-- 查询计划内质量现场检查 -->
+	<select id="searchPlanInsideQuality" resultType="java.util.HashMap" >
+		SELECT * FROM ( 
+			SELECT b.ID_ id, b.SN_ sn, b.SUBJECT_ subject, b.TYPE_ type, b.STATUS_ status, b.CONTENT_ content, 
+			DATE_FORMAT(b.CREATE_TIME_, '%Y-%m-%d %H:%i:%s') createTime, b.LB_ lb, 
+			a.AREA_CODE_ areaCode, a.AREA_NAME_ areaName, a.INSPECT_ITEM_ inspectItem, a.INSPECT_ITEM_UID_ inspectItemUid, 
+			<!-- a.INSPECT_STANDARD_ inspectStandard, --> a.INSPECTOR_ inspector, a.INSPECTOR_UID_ inspectorUid, 
+			DATE_FORMAT(a.START_DATE_, '%Y-%m-%d %H:%i:%s') startDate, a.SORT_ sort, 
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d %H:%i:%s') endDate, a.CONTENT_ contentDet, 
+			(SELECT STATUS_ FROM T_INSPECT_RECORD WHERE PLANDET_UID_ = a.ID_) inspectStatus 
+			FROM T_INSPECTION_PLAN_DET a left join T_INSPECTION_PLAN b on b.ID_ = a.PARENT_UID_
+			
+			<if test="lb != null and lb != ''">
+				AND LB_ = #{lb}
+			</if>
+			
+			<!-- 1:待我检查, 2:待我整改, 3:待我复查, 4:我提交的 -->
+			<choose>
+			    <when test="status == 1">	
+			    	AND a.INSPECTOR_UID_ = #{userUid} 
+			    	AND (SELECT STATUS_ FROM T_INSPECT_RECORD WHERE PLANDET_UID_ = a.ID_) is null
+			    </when>
+			    <when test="status == 2">
+			    	AND a.INSPECTOR_UID_ = #{userUid} 
+			    	AND (SELECT STATUS_ FROM T_INSPECT_RECORD WHERE PLANDET_UID_ = a.ID_) = 2
+			    </when>
+			    <when test="status == 3">
+			    	AND a.INSPECTOR_UID_ = #{userUid} 
+			    	AND (SELECT STATUS_ FROM T_INSPECT_RECORD WHERE PLANDET_UID_ = a.ID_) = 3
+			    </when>
+			    <otherwise>
+			    	AND b.CREATE_USER_ = #{userUid}
+			    </otherwise>
+			</choose>
+			) data order by createTime desc LIMIT  #{start}, #{end} 
+	</select>
+	
+	<!-- 获取企业库检查项列表数据 -->
+	<select id="getCheckItemEnterpriseList" resultType="java.util.HashMap" >
+		SELECT * FROM ( 
+			select ID_ id, DetailNO detailNo, PARENT_ID_ parentId, TableNO tableNo, CheckItemNO checkItemNo, CREATE_TIME_, 
+			CheckItemName checkItemName, CheckItemClaim checkItemClaim, MinCount minCount, CheckItmeDesc checkItmeDesc, 
+			ItemNO itemNo, type_ type, lb_ lb, (case type_ WHEN 'quality' THEN '质量' WHEN 'safety' THEN '安全' ELSE '' END) typeName 
+			from T_JCBZMX where PARENT_ID_ = #{parentUid}
+			) data order by CREATE_TIME_ desc LIMIT  #{start}, #{end} 
+	</select>
+
+
+	<!-- 更新检查项业态和项目类型 -->
+	<update id="updatePurposeAndLx">
+		UPDATE T_INSPECT_COMPANY SET PROJ_LX = #{newProjectType}, PROJ_PURPOSE = #{newYeTai} where ID_=#{id}
+	</update>
+	
+	
+	<!-- 删除权限人员 -->
+	<delete id="deletePermissionUser">
+		delete from T_INSPECT_USER where proj_uid_ = #{projUid} and type_ = #{type} and GROUP_NAME_ = #{groupName}
+	</delete>
+
+	<!-- 获取检查权限人员数据 -->
+	<select id="getPermissionUsers" resultType="java.util.HashMap" >
+		SELECT ID_ id,USER_NAME_ userName,PICTURE_ picture FROM ORG_USER WHERE ID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+		<if test="search != null and search != null">
+			AND USER_NAME_ like concat('%', #{search}, '%')
+		</if>
+	</select>
+
+	<!-- 获取权限角色人员 -->
+	<select id="getPermissionRoleUsers" resultType="java.util.HashMap" >
+		SELECT A.USER_UID_ id,A.USER_NAME_ userName,D.PICTURE_ picture FROM wx_pro_member A LEFT JOIN ORG_USER D ON A.USER_UID_=D.ID_
+		WHERE A.PRO_UID_ = #{projUid} AND A.POSITION_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+		<if test="search != null and search != null">
+			AND A.USER_NAME_ like concat('%', #{search}, '%')
+		</if>
+	</select>
+
+	<!-- 获取待检查数据 -->
+	<select id="getWaitingCheckDatas" resultType="java.util.HashMap" >
+		SELECT D.ID_ id,D.AREA_NAME_ areaName,D.INSPECT_ITEM_ inspectItem,D.INSPECT_ITEM_UID_ itemUid,D.CHECK_REQUIRE_ checkRequire,
+		DATE_FORMAT(D.START_DATE_, '%Y-%m-%d') startDate,DATE_FORMAT(D.END_DATE_, '%Y-%m-%d') endDate,
+		D.INSPECTOR_NAME_ inspectorName,D.INSPECTOR_UID_ inspectorUid,T.TYPE_ checkType,
+		T.ID_ planUid,T.STATUS_ planStatus,D.AREA_UID_ areaUid,T.PROJ_UID_ projUid,
+		(SELECT XMMC_ FROM wx_project WHERE ID_=T.PROJ_UID_ ) projName,
+		(select ID_ from t_inspect_record where PLANDET_UID_ = D.ID_ LIMIT 1) checkUid,
+		(select ID_ from T_DRAWING where AREA_UID_ = D.AREA_UID_ LIMIT 1) drawingId,
+		(select MARKER_DATA_ from T_DRAWING where AREA_UID_ = D.AREA_UID_ LIMIT 1) markerData,
+		(select ID_ from T_ATTACHMENT where parent_id_ = (select ID_ from T_DRAWING where AREA_UID_ = D.AREA_UID_ LIMIT 1) LIMIT 1) fileId,
+		T.SUBJECT_ planName,T.ID_ planUid FROM t_inspection_plan_det D LEFT JOIN  t_inspection_plan T ON D.PARENT_UID_=T.ID_
+		WHERE T.PROJ_UID_=#{projUid} AND T.ISSUE_STATUS_='已发布'
+		<if test="lb != null and lb != ''">
+			AND T.LB_=#{lb}
+		</if>
+		AND (TASK_STATUS_ IS NULL OR TASK_STATUS_=0)
+		<if test="userUid != null and userUid != ''">
+			AND D.INSPECTOR_UID_ like concat('%', #{userUid}, '%')
+		</if>
+		order by T.CREATE_TIME_ desc LIMIT  #{start}, #{end}
+	</select>
+	
+	
+	<select id="searchInspectItemList" resultType="com.jrsoft.business.modules.construction.domain.CheckItem" >
+		select ID_ id, NAME_ itemName, LB_ lb, MIN_SAMPLE_ minSample, PARENT_ID_ parentUid, 
+		PROJ_TYPE_ projType, SORT_ sort, TYPE_ type, SIGN_ sign,CHECK_REQUIRE_ checkRequire,
+		(case WHEN (SELECT COUNT(ID_) FROM t_inspect_company where PARENT_ID_ = D.ID_ AND COMPANY_ = #{companyUid} 
+		<if test="projType != null and projType != null">
+			AND PROJ_LX like concat('%', #{projType}, '%')  
+		</if>
+		<if test="projPurpose != null and projPurpose != null">
+			AND PROJ_PURPOSE like concat('%', #{projPurpose}, '%')    
+		</if>
+
+		)=0 THEN 'true' ELSE 'false' END ) leaf
+		
+		
+		from T_INSPECT_COMPANY D where COMPANY_ = #{companyUid} 
+		<if test="projType != null and projType != null">
+			AND PROJ_LX like concat('%', #{projType}, '%')  
+		</if>
+		<if test="projPurpose != null and projPurpose != null">
+			 AND (PROJ_PURPOSE like concat('%', #{projPurpose}, '%')  OR PROJ_PURPOSE='通用')
+		</if>
+		<if test="type != null and type!='' ">
+			and (TYPE_ =#{type} or TYPE_ ='general')
+		</if>
+		<choose>
+			<when test="id != null and id=='root'">
+				and LB_ != '检查项' AND LB_ != '实测项' and PARENT_ID_ = 'root'
+			</when>
+			<otherwise>
+				and PARENT_ID_ = #{id} 
+			</otherwise>
+		</choose>
+
+		order by SIGN_
+	</select>
+
+	<select id="getAreaPurposes" resultType="java.util.HashMap" >
+		SELECT YE_TAI_ name from  t_work_part WHERE PROJ_UID_=#{projUid}  AND ISNULL(IF_DELETE_)  GROUP BY YE_TAI_ ORDER BY SN_
+	</select>
+
+	<!--获取检查统计表格部位数据-->
+	<select id="getStatisticPartData" resultType="java.util.HashMap">
+		SELECT COUNT(ID_) totalNum, INSPECT_PART_NAME_ partName,INSPECT_PART_UID_ partUid,
+		(SELECT COUNT(ID_) FROM T_INSPECT_RECORD WHERE PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND (STATUS_=4 OR STATUS_=5) AND INSPECT_PART_UID_=D.INSPECT_PART_UID_ AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect') completeNum
+		FROM T_INSPECT_RECORD D WHERE  PROJ_UID_ = #{projUid}
+		<include refid="queryDataSql"/>
+		AND DATA_TYPE_='inspect' AND FORM_TYPE_='inspect' GROUP BY INSPECT_PART_UID_,INSPECT_PART_NAME_
+	</select>
+
+	<!--获取检查统计表格-->
+	<select id="getStatisticItemNameData" resultType="java.util.HashMap">
+		SELECT itemName,INSPECT_ITEM_UID_ itemParentUid FROM (
+			SELECT INSPECT_ITEM_NAME_,SUBSTRING_INDEX(INSPECT_ITEM_NAME_,'>',2) itemName,INSPECT_ITEM_UID_
+		FROM t_inspect_record WHERE PROJ_UID_ = #{projUid}
+			<include refid="queryDataSql"/>
+		) DATA	GROUP by itemName
+	</select>
+
+	<!--获取检查统计表格数据-->
+	<select id="getStatisticObj" resultType="java.util.HashMap">
+		select COUNT(ID_) totalNum,
+		(select COUNT(ID_) from t_inspect_record where INSPECT_ITEM_NAME_ like concat(#{itemName}, '%')
+		AND INSPECT_PART_UID_=#{partUid}
+		AND (STATUS_=4 OR STATUS_=5) and FORM_TYPE_='inspect') completeNum
+		from t_inspect_record where INSPECT_ITEM_NAME_ like concat(#{itemName}, '%')
+		AND INSPECT_PART_UID_=#{partUid} and FORM_TYPE_='inspect' AND DATA_TYPE_='inspect'
+	</select>
+
+	<!--获取检查记录中检查项数据-->
+	<select id="getCheckRecordItemList" resultType="java.util.HashMap">
+		SELECT SUBSTRING_INDEX(INSPECT_ITEM_NAME_,'>',2) itemName
+		FROM t_inspect_record WHERE PROJ_UID_=#{projUid}
+		<if test="checkType != null and checkType != ''">
+			AND CHECK_TYPE_=#{checkType}
+		</if>
+		GROUP BY itemName
+
+	</select>
+</mapper>

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.TrainingDetailDao">
+
+    <!--获取培训详情列表信息-->
+    <select id="getTrainingDetailByWorker" resultType="java.util.HashMap">
+        SELECT
+            A.ID_ AS id,
+            A.CURRICULUM_UID_ AS curriculumUid,
+            A.WORKER_UID_ AS workerUid,
+            A.IS_IT_QUALIFIED_ AS isItQualified,
+            A.TRAINING_SCORE_ AS trainingScore
+        FROM
+            R_TRAINING_DETAIL A
+        WHERE
+          A.COMPANY_ = #{companyUid}
+          AND A.CURRICULUM_UID_ = #{curriculumUid}
+          AND A.WORKER_UID_ = #{workerUid}
+        ORDER BY
+          A.CREATE_TIME_ DESC
+    </select>
+
+    <!--获取培训详情列表-->
+    <select id="getTrainingDetailList" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT *
+			FROM
+			(
+	        SELECT
+	            A.ID_ AS id,
+	            B.NAME_ AS name,
+	            B.IDCARD_NUMBER_ AS idcardNumber,
+	            B.WORK_TYPE_CODE_ AS workTypeCode,
+	            A.IS_IT_QUALIFIED_ AS isItQualified,
+	            A.TRAINING_SCORE_ AS trainingScore,
+	            B.CREATE_TIME_
+	        FROM
+	            R_TRAINING_DETAIL A
+	            LEFT JOIN R_WORKER_INFO B ON (A.WORKER_UID_ = B.ID_)
+	        WHERE
+	          A.COMPANY_ = #{companyUid}
+	          AND A.CURRICULUM_UID_ = #{curriculumUid}
+	        ) data
+			ORDER BY
+				data.CREATE_TIME_ DESC LIMIT #{startIndex}, #{endIndex}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT *
+			FROM
+			(
+	        SELECT
+	            ROW_NUMBER () OVER (ORDER BY B.CREATE_TIME_ DESC) AS Rownumver,
+	            A.ID_ AS id,
+	            B.NAME_ AS name,
+	            B.IDCARD_NUMBER_ AS idcardNumber,
+	            B.WORK_TYPE_CODE_ AS workTypeCode,
+	            A.IS_IT_QUALIFIED_ AS isItQualified,
+	            A.TRAINING_SCORE_ AS trainingScore,
+	            B.CREATE_TIME_
+	        FROM
+	            R_TRAINING_DETAIL A
+	            LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+	        WHERE
+	          A.COMPANY_ = #{companyUid}
+	          AND A.CURRICULUM_UID_ = #{curriculumUid}
+	        ) data
+			WHERE
+				(data.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+			ORDER BY
+				data.CREATE_TIME_ DESC;
+		</if>
+    </select>
+
+    <!--获取培训详情列表(总数)-->
+    <select id="getTrainingDetailTotalCount" resultType="int">
+		SELECT COUNT(DATA_.id)
+	FROM
+		(
+			SELECT
+            A.ID_ AS id,
+            B.NAME_ AS name,
+            B.IDCARD_NUMBER_ AS idcardNumber,
+            B.WORK_TYPE_CODE_ AS workTypeCode,
+            A.IS_IT_QUALIFIED_ AS isItQualified,
+            A.TRAINING_SCORE_ AS trainingScore,
+            B.CREATE_TIME_
+        FROM
+            R_TRAINING_DETAIL A
+            LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        WHERE
+          A.COMPANY_ = #{companyUid}
+          AND A.CURRICULUM_UID_ = #{curriculumUid}
+		) DATA_
+	</select>
+
+    <!--获取员工信息（项目ID）-->
+    <select id="findWorkerInfoByProjUid" resultType="java.util.HashMap">
+			SELECT
+				B.ID_ AS id,
+				B.NAME_ AS name,
+				A.PROJ_UID_ AS projUid,
+				C.XMMC_ AS xmmc,
+				B.WORK_TYPE_CODE_ AS workTypeCode
+			FROM
+				R_PROJECT_WORKER A
+				LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+				LEFT JOIN WX_PROJECT C ON ( A.PROJ_UID_ = C.ID_ )
+			WHERE
+				A.COMPANY_ = #{companyUid}
+				AND A.PROJ_UID_ = #{projUid}
+	</select>
+
+	<!-- 根据curriculumUid来查询得到培训人员的详细信息 -->
+	<select id="getTrainingDetailListByCurriculumUid" resultType="java.util.HashMap">
+		SELECT rtd.IS_IT_QUALIFIED_ ,rtd.TRAINING_SCORE_ ,rwi.IDCARD_NUMBER_, 
+		(select TRAIN_CODE_ from R_CURRICULUM where id_ = rtd.CURRICULUM_UID_) trainCode 
+		FROM R_TRAINING_DETAIL rtd INNER JOIN R_WORKER_INFO rwi ON rtd.WORKER_UID_=rwi.ID_ 
+		left join R_CURRICULUM c on c.ID_ = rtd.CURRICULUM_UID_
+		WHERE c.PROJ_UID_ = #{curriculumUid}
+	</select>
+</mapper>

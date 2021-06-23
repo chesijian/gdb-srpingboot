@@ -1,0 +1,818 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.process.dao.ProcessManageDao">
+	
+	<!-- 查询第一层工序 -->
+	<select id="searchFirstProcess" resultType="java.util.HashMap">
+		<!-- select ID_ id, NAME_ label, AREA_UID_ areaUid, INSPECT_UID_ inspectUid, SORT_ sort, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, FULL_NAME_ fullName, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, PARENT_UID_ parentUid, PROJ_UID_ projUid
+		from T_PROCESS a where proj_uid_ = #{projUid} order by SORT_ -->
+		
+		
+		select ID_ id, NAME_ label, NAME_ itemName, PARENT_ID_ parentId, SORT_ sort, SIGN_ sign, TYPE_ type, LB_ lb, MIN_SAMPLE_ minSample, 
+		CHECK_REQUIRE_ checkRequire, PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, PROJ_TYPE_ projType, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		</if>
+		PARENT_ID_ parentUid 
+		from T_PROCESS a where proj_uid_ = #{projUid} and parent_id_ = 'root' and LB_ !='检查项' AND LB_ !='实测项' order by SORT_
+	</select>
+	
+	
+	<!--获取检查项目录数据-->
+	<select id="getCheckItemCatalog" resultType="java.util.HashMap">
+		select ID_ id,NAME_ label,SORT_ sort,TYPE_ type,LB_ lb
+		from T_PROCESS D where COMPANY_ = #{companyUid,jdbcType=VARCHAR} AND  PARENT_ID_=#{parentUid} AND PROJ_UID_=#{projUid}
+		AND LB_ !='检查项' AND LB_ !='实测项'
+		<if test="formType != null and formType!='' ">
+			and TYPE_ =#{formType}
+		</if>
+		order by SORT_ DESC
+
+	</select>
+	
+	
+	<!-- 查询下级工序 -->
+	<select id="searchChildrenProcess" resultType="java.util.HashMap" >
+		select ID_ id, NAME_ label, NAME_ itemName, PARENT_ID_ parentId, SORT_ sort, SIGN_ sign, TYPE_ type, LB_ lb, MIN_SAMPLE_ minSample, 
+		CHECK_REQUIRE_ checkRequire, PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, PROJ_TYPE_ projType, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		</if>
+		PARENT_ID_ parentUid, PROJ_UID_ projUid,
+		(case LB_ WHEN '检查项' THEN 0 WHEN '实测项' THEN 0 ELSE 1 END) flag
+		from T_PROCESS a where parent_id_ = #{parentUid} 
+		<if test="projUid != null and projUid != ''">
+			and proj_uid_ = #{projUid}
+		</if>
+		<if test="isCatalog">
+			and LB_ NOT IN ('检查项','实测项')
+		</if>
+		order by SORT_
+	</select>
+	
+	
+	<!-- 根据工序id查询检查项 -->
+	<select id="searchInspectList" resultType="java.util.HashMap" >
+			SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver, 
+			ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentId, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+			PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, COUNT(1) OVER() AS totalCount 
+			from T_PROCESS a where PARENT_ID_ = #{processId} and (LB_ ='检查项' or LB_ = '实测项')
+			<if test="search != null and search != ''">
+				and name_ like '%'+#{search}+'%' 
+			</if>
+			) data where (data.Rownumver between #{start} and #{end}) order by sort
+	</select>
+	
+	
+	<!-- 根据工序id查询检查项(MySQL) -->
+	<select id="searchInspectListMySql" resultType="java.util.HashMap" >
+		SELECT * FROM ( select ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentId, SIGN_ sign, TYPE_ type, 
+			CHECK_REQUIRE_ checkRequire,
+			PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+			( select count(id_) from T_PROCESS a where PARENT_ID_ = #{processId} and (LB_ ='检查项' or LB_ = '实测项')
+				<if test="search != null and search != ''">
+				and name_ like concat('%', #{search}, '%')
+				</if>
+			) totalCount 
+			from T_PROCESS a where PARENT_ID_ = #{processId} and (LB_ ='检查项' or LB_ = '实测项')
+			<if test="projUid != null and projUid != ''">
+				and PROJ_UID_ = #{projUid}
+			</if>
+			<if test="search != null and search != ''">
+				and name_ like concat('%', #{search}, '%')
+			</if>
+			) data order by sort LIMIT #{start}, #{end}
+	</select>
+	
+	
+	<!-- 删除工序 -->
+	<delete id="delete">
+		DELETE FROM T_PROCESS WHERE id_ = #{id} 
+	</delete>
+	
+	
+	<!-- 查询排序号 -->
+	<select id="searchMaxSort" resultType="Integer">
+		select max(sort_) sort from T_PROCESS a where 
+		<if test="parentUid != null">
+			PARENT_UID_ = #{parentUid}
+		</if>
+	</select>
+	
+	
+	<!-- 根据id编辑工序 -->
+	<select id="edit" resultType="java.util.HashMap" >
+		select ID_ id, NAME_ label, PARENT_ID_ parentId, SORT_ sort, SIGN_ sign, TYPE_ type, LB_ lb, MIN_SAMPLE_ minSample, 
+		CHECK_REQUIRE_ checkRequire, PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, PROJ_TYPE_ projType, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, PARENT_ID_ parentUid, PROJ_UID_ projUid
+		from T_PROCESS a where id_ = #{id} 
+	</select>
+	
+	
+	<!-- 根据id编辑检查项 -->
+	<select id="editInspect" resultType="java.util.HashMap" >
+		select ID_ id, NAME_ label, PARENT_ID_ parentId, SORT_ sort, SIGN_ sign, TYPE_ type, LB_ lb, MIN_SAMPLE_ minSample, 
+		CHECK_REQUIRE_ checkRequire, PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, PROJ_TYPE_ projType, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, PARENT_ID_ parentUid, PROJ_UID_ projUid
+		from T_PROCESS a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 删除检查项 -->
+	<delete id="deleteInspect">
+		DELETE FROM T_PROCESS WHERE id_ in
+		<foreach collection="id" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</delete>
+	
+	
+	<!-- 查询检查项排序最大值 -->
+	<select id="InspectMaxSort" resultType="Integer" >
+		select max(sort_) sort from T_PROCESS a where 
+		<if test="parentUid != null">
+			PARENT_ID_ = #{parentUid}
+		</if>
+	</select>
+	
+	
+	<!-- 根据项目id查询工序检验 -->
+	<select id="searchProcessCheckout" resultType="java.util.HashMap" >
+			SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY CODE_) as Rownumver, 
+			ID_ id, CODE_ code, NAME_ name, AREA_FULL_NAME_ areaFullName, REMARK_ remark, SORT_ sort, IS_SELECTED_ isSelected, 
+			(select name_ from T_WORK_PART where id_ = a.PART_UID_) partName, PART_UID_ partUid, PARENT_UID_ parentUid,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			(select count(id_) from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_) processCount, 
+			(select count(id_) from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_) taskCount,
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, COUNT(1) OVER() AS totalCount, 
+			(select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ in
+				(select id_ from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_)) issueAndRecordCount
+			from T_PROCESS_CHECKOUT a where PROJ_UID_ = #{projUid} 
+			<if test="search != null and search != ''">
+				and PART_UID_ = #{search}
+			</if>
+			) data where (data.Rownumver between #{start} and #{end}) order by code 
+	</select>
+	
+	
+	<select id="searchProcessCheckoutMySql" resultType="java.util.HashMap" >
+		SELECT * FROM ( select ID_ id, CODE_ code, NAME_ name, AREA_FULL_NAME_ areaFullName, REMARK_ remark, 
+			SORT_ sort, IS_SELECTED_ isSelected, 
+			(select name_ from T_WORK_PART where id_ = a.PART_UID_) partName, PART_UID_ partUid, PARENT_UID_ parentUid,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			(select count(id_) from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_) processCount, 
+			(select count(id_) from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_) taskCount,
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+			(select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ in
+				(select id_ from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_)) issueAndRecordCount, 
+			( select count(id_) from T_PROCESS_CHECKOUT a where PROJ_UID_ = #{projUid} 
+				<if test="search != null and search != ''">
+				and PART_UID_ = #{search}
+				</if>
+			) totalCount
+			from T_PROCESS_CHECKOUT a where PROJ_UID_ = #{projUid} 
+			<if test="search != null and search != ''">
+				and PART_UID_ = #{search}
+			</if>
+			) data order by code LIMIT #{start}, #{end}
+	</select>
+	
+	
+	
+	<!-- 编辑工序检验 -->
+	<select id="editCheckoutById" resultType="java.util.HashMap" >
+		select ID_ id, CODE_ code, NAME_ name, AREA_FULL_NAME_ areaFullName, REMARK_ remark, SORT_ sort,
+		(select name_ from T_WORK_PART where id_ = a.PART_UID_) partName,  
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate
+		</if>
+		from T_PROCESS_CHECKOUT a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 删除工序检验 -->
+	<delete id="deleteCheckoutByIds">
+		DELETE FROM T_PROCESS_CHECKOUT WHERE id_ in
+		<foreach collection="idss" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</delete>
+	
+	
+	<!-- 查询工序检验编号最大值 -->
+	<select id="checkoutMaxSort" resultType="Integer">
+		select 
+		<if test="dbType == 'mysql'">
+			ifnull(max(code_),0) sort 
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(max(code_),0) sort 
+		</if>
+		
+		from T_PROCESS_CHECKOUT a where PROJ_UID_ = #{projUid}
+	</select>
+	
+	
+	<!-- 根据区域查询检验批 -->
+	<select id="getProcessCheckout" resultType="java.util.HashMap">
+		select ID_ id, CODE_ code, NAME_ label, AREA_FULL_NAME_ name, PART_UID_ partUid 
+		from T_PROCESS_CHECKOUT where PART_UID_ = #{id} and PROJ_UID_ = #{projUid}
+	</select>
+	
+	
+	<!-- 根据项目id查询工序任务列表 -->
+	<select id="searchProcessTaskList" resultType="java.util.HashMap" >
+	SELECT * FROM ( select ROW_NUMBER() OVER(ORDER BY CODE_) as Rownumver,
+		ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName, 
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, isnull(PRINCIPAL_,'') principal, isnull(SPOT_, '') spot, 
+		(select user_name_ from org_user where id_ = a.PRINCIPAL_) principalName,
+		(select user_name_ from org_user where id_ = a.INSPECT_) inspectName, COUNT(1) OVER() AS totalCount, 
+		(select user_name_ from org_user where id_ = a.SPOT_) spotName, isnull(INSPECT_, '') inspect, 
+		convert(varchar(100),a.START_DATE_,23) startDate, convert(varchar(100),a.END_DATE_,23) endDate, 
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, (select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and DATA_TYPE_ = 'inspect') issueCount, SORT_ sort
+		from T_PROCESS_TASK a where PROJ_UID_ = #{projUid} 
+		<if test="examineStatus != null and examineStatus != ''">
+			and a.STATUS_ = #{examineStatus}
+		</if>
+		<if test="constructionStatus != null and constructionStatus != '' ">
+			and a.CONSTRUCTION_STATUS_ = #{constructionStatus}
+		</if>
+		<if test="partUid != null and partUid != '' ">
+			and a.AREA_UID_ = #{partUid}
+		</if>
+		<if test="principalUid != null and principalUid != '' ">
+			and a.PRINCIPAL_ = #{principalUid}
+		</if>
+		) data where (data.Rownumver between #{start} and #{end}) order by code
+	</select>
+	
+	
+	<!-- 根据项目id查询工序任务列表 (MySql)-->
+	<select id="searchProcessTaskListMySql" resultType="java.util.HashMap" >
+	SELECT * FROM ( 
+		select ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,INSPECT_TYPE_ inspectType,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName, 
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, ifnull(PRINCIPAL_,'') principal, ifnull(SPOT_, '') spot, 
+		(select user_name_ from org_user where id_ = a.PRINCIPAL_) principalName,
+		(select user_name_ from org_user where id_ = a.INSPECT_) inspectName,  
+		(select user_name_ from org_user where id_ = a.SPOT_) spotName, ifnull(INSPECT_, '') inspect, 
+		DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate, DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate, 
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, (select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and DATA_TYPE_ = 'inspect') issueCount, 
+		SORT_ sort, 
+		(select count(id_) from T_PROCESS_TASK a where PROJ_UID_ = #{projUid} 
+			<if test="examineStatus != null and examineStatus != ''">
+			and a.STATUS_ = #{examineStatus}
+			</if>
+			<if test="constructionStatus != null and constructionStatus != '' ">
+				and a.CONSTRUCTION_STATUS_ = #{constructionStatus}
+			</if>
+			<if test="partUid != null and partUid != '' ">
+				and a.AREA_UID_ = #{partUid}
+			</if>
+			<if test="principalUid != null and principalUid != '' ">
+				and a.PRINCIPAL_ like concat('%', #{principalUid}, '%')
+			</if>
+		) totalCount 
+		from T_PROCESS_TASK a where PROJ_UID_ = #{projUid} 
+		<if test="examineStatus != null and examineStatus != ''">
+			and a.STATUS_ = #{examineStatus}
+		</if>
+		<if test="constructionStatus != null and constructionStatus != '' ">
+			and a.CONSTRUCTION_STATUS_ = #{constructionStatus}
+		</if>
+		<if test="partUid != null and partUid != '' ">
+			and a.AREA_UID_ = #{partUid}
+		</if>
+		<if test="principalUid != null and principalUid != '' ">
+			and a.PRINCIPAL_ like concat('%', #{principalUid}, '%')
+		</if>
+		) data order by code LIMIT #{start}, #{end}
+	</select>
+	 
+	 <!-- 查询工序任务排序号 -->
+	 <select id="searchTaskSortMax" resultType="Integer">
+	 	select 
+		<if test="dbType == 'mysql'">
+			ifnull(max(code_),0) sort
+		</if>
+		<if test="dbType == 'mssql'">
+		 	isnull(max(code_),0) sort 
+		</if>
+	 	from T_PROCESS_TASK a where PROJ_UID_ = #{projUid}
+	 </select>
+	 
+	 
+	 <!-- 删除工序任务 -->
+	 <delete id="deleteProcessTaskByIds">
+		DELETE FROM T_PROCESS_TASK WHERE id_ in
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</delete>
+	 
+	 
+	<!-- 编辑工序任务 -->
+	<select id="editProcessTaskById" resultMap="searchProcess">
+		select ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,
+		(select ID_ from T_DRAWING where AREA_UID_ = a.AREA_UID_ LIMIT 1) drawingId,
+		(select ID_ from T_ATTACHMENT where parent_id_ = (select ID_ from T_DRAWING where AREA_UID_ = a.AREA_UID_ LIMIT 1)  LIMIT 1 ) areaPictureId,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName, 
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, PRINCIPAL_ principal, INSPECT_ inspect, 
+		(select user_name_ from org_user where id_ = a.PRINCIPAL_) principalName,
+		(select user_name_ from org_user where id_ = a.INSPECT_) inspectName, 
+		(select user_name_ from org_user where id_ = a.SPOT_) spotName, SPOT_ spot,
+		(select REMARK_ from T_PROCESS_CHECKOUT where CHECKOUT_UID_ = a.id_) content, 
+		convert(varchar(100),a.START_DATE_,23) startDate, 
+		convert(varchar(100),a.END_DATE_,23) endDate, 
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, ISSUE_COUNT_ issueCount, SORT_ sort,
+		(select user_name_ from org_user where id_ = a.OPERATION_PERSON_) operationPerson,
+		isnull((select count(id_) from T_INSPECT_RECORD b where b.PROCESS_ID_ = a.id_ 
+		and (b.STATUS_ = 1 or b.STATUS_ = 2 or b.STATUS_ = 3) 
+		and (b.RECTIFY_PRINCIPAL_UID_ = #{userUid} or #{userUid} 
+		in (select USER_UID_ from T_INSPECT_USER where PARENT_UID_ = b.id_))),0) agendaCount 
+		from T_PROCESS_TASK a where id_ = #{id} 
+	</select> 
+	
+	
+	<!-- 编辑工序任务(MySQL) -->
+	<select id="editProcessTaskByIdMySql" resultMap="searchProcessMySQL">
+		select ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,
+		(select ID_ from T_DRAWING where AREA_UID_ = a.AREA_UID_ LIMIT 1) drawingId,
+		(select ID_ from T_ATTACHMENT where parent_id_ = (select ID_ from T_DRAWING where AREA_UID_ = a.AREA_UID_ LIMIT 1)  LIMIT 1 ) areaPictureId,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName, 
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, PRINCIPAL_ principal, INSPECT_ inspect, 
+		(select user_name_ from org_user where id_ = a.PRINCIPAL_) principalName,
+		(select user_name_ from org_user where id_ = a.INSPECT_) inspectName, 
+		(select user_name_ from org_user where id_ = a.SPOT_) spotName, SPOT_ spot,
+		(select REMARK_ from T_PROCESS_CHECKOUT where CHECKOUT_UID_ = a.id_) content, 
+		DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate, INSPECT_TYPE_ inspectType,
+		DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate, 
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, ISSUE_COUNT_ issueCount, SORT_ sort,
+		(select user_name_ from org_user where id_ = a.OPERATION_PERSON_) operationPerson,
+		ifnull((select count(id_) from T_INSPECT_RECORD b where b.PROCESS_ID_ = a.id_ 
+		and (b.STATUS_ = 1 or b.STATUS_ = 2 or b.STATUS_ = 3) 
+		and (b.RECTIFY_PRINCIPAL_UID_ = #{userUid} or #{userUid} 
+		in (select USER_UID_ from T_INSPECT_USER where PARENT_UID_ = b.id_))),0) agendaCount 
+		from T_PROCESS_TASK a where id_ = #{id} 
+	</select> 
+	
+	
+	
+	<resultMap type="java.util.HashMap" id="searchProcess">
+		<id property="processUid" column="processUid" />
+		<id property="id" column="id" />
+		<collection property="process" column="{processUid = processUid, id = id}"  javaType="java.util.List"  select="selectProcess" />
+	</resultMap>
+	
+	
+	<resultMap type="java.util.HashMap" id="searchProcessMySQL">
+		<id property="processUid" column="processUid" />
+		<id property="id" column="id" />
+		<id property="inspectType" column="inspectType" />
+		<collection property="process" column="{processUid = processUid, id = id,inspectType=inspectType}"  javaType="java.util.List"  select="selectProcessMySql" />
+	</resultMap>
+	
+	<select id="selectProcess" resultType="java.util.HashMap">
+		select ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentId, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+		PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate,
+		(select STATUS_ from T_PROCESS_DET where PROCESS_ID_ = a.id_ and PROCESS_TASK_ID_ = #{id}) status
+		from T_PROCESS a where PARENT_ID_ = #{processUid} and (LB_ ='检查项' or LB_ = '实测项') 
+	</select>
+	
+	
+	<select id="selectProcessMySql" resultType="java.util.HashMap">
+		select ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentId, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+		DESIGN_VALUE_ designValue, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate,
+		(select STATUS_ from T_PROCESS_DET where PROCESS_ID_ = a.id_ and PROCESS_TASK_ID_ = #{id}) status
+		<choose>
+			<when test="inspectType != null and inspectType==1">
+				from t_inspect_company
+			</when>
+			<otherwise>
+				from T_PROCESS
+			</otherwise>
+		</choose>
+		 a where PARENT_ID_ = #{processUid} and (LB_ ='检查项' or LB_ = '实测项')
+	</select>
+	
+	<!-- 查询负责人 -->
+	<select id="searchPersonnel" resultType="java.util.HashMap" >
+		select user_uid_ id, user_name_ label, POSITION_ position from WX_PRO_MEMBER where pro_uid_ = #{projUid} 
+		and user_uid_ in 
+		<foreach collection="principal" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach>
+	</select>
+	
+	
+	<!-- 根据项目id查询区域与工序任务 -->
+	<select id="searchPartAndProcessTask" resultType="java.util.HashMap">
+		select ID_ id, NAME_ itemName, SORT_ sort, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),CREATE_TIME_,23) createTime, 
+		</if>	
+		proj_uid_ projUid, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, parent_uid_ parentUid  
+		from T_WORK_PART a where PARENT_UID_ = #{parentUid} 
+		<if test="projUid != null ">
+			and PROJ_UID_  = #{projUid}
+		</if>
+		and (IF_DELETE_ = 0 or IF_DELETE_ is null) order by SORT_
+	</select>
+	
+	
+	<!-- 根据区域id查询工序任务 -->	
+	<select id="getProcessTaskByPartId" resultType="java.util.HashMap" >
+		select ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName, 
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, PRINCIPAL_ principal, INSPECT_ inspect, SPOT_ spot,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate, 
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.START_DATE_,23) startDate, 
+			convert(varchar(100),a.END_DATE_,23) endDate, 
+		</if>
+		<!-- (select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and (STATUS_ = 2 or STATUS_ = 3)) agendaCount,  -->
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, ISSUE_COUNT_ issueCount, SORT_ sort,  
+		<if test="dbType == 'mysql'">
+			ifnull((select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and (STATUS_ = 1 or STATUS_ = 2 or STATUS_ = 3) <!-- and RECTIFY_PRINCIPAL_UID_ = #{userUid} -->), 0) agendaCount
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull((select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and (STATUS_ = 1 or STATUS_ = 2 or STATUS_ = 3) <!-- and RECTIFY_PRINCIPAL_UID_ = #{userUid} -->), 0) agendaCount
+		</if>
+		from T_PROCESS_TASK a where AREA_UID_ = #{parentUid} and PROJ_UID_ = #{projUid}
+		<if test="search != null and search != ''">
+			and PROCESS_NAME_ like concat('%', #{search}, '%')
+		</if>
+		order by CODE_
+	</select>
+	
+	
+	<!-- 根据工序id查询检查项 -->
+	<select id="searchExamineNape" resultType="java.util.HashMap" >
+		select ID_ id, NAME_ name, SORT_ sort, PARENT_ID_ parentId, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+		DESIGN_VALUE_ designValue, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		(select count(id_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and DATA_TYPE_ = 'inspect' AND STATUS_ IN(1,2,3) ) agendaCount,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		</if>
+		(select STATUS_ from T_PROCESS_DET where PROCESS_ID_ = a.id_ and PROCESS_TASK_ID_ = #{taskId}) status, 
+		(select id_ from T_PROCESS_DET where PROCESS_ID_ = a.id_ and PROCESS_TASK_ID_ = #{taskId}) idDet
+		<choose>
+			<when test="inspectType != null and inspectType==1">
+				from t_inspect_company a
+			</when>
+			<otherwise>
+				from T_PROCESS a
+			</otherwise>
+		</choose>
+
+		where PARENT_ID_ = #{processId} and (LB_ ='检查项' or LB_ = '实测项') 
+	</select>
+	
+	
+	<!-- 查询任务数与工序数 -->
+	<select id="searchTaskCountAndProcessCount" resultType="java.util.HashMap" >
+		select 
+		<!-- Mysql -->
+		<if test="dbType == 'mysql'">
+			ifnull(count(id_),0)taskCount, 
+			ifnull(count(distinct PROCESS_UID_),0) processCount, 
+		</if>
+		<!-- sqlServer -->
+		<if test="dbType == 'mssql'">
+			isnull(count(id_),0)taskCount, 
+			isnull(count(distinct PROCESS_UID_),0) processCount, 
+		</if>
+		PROCESS_NAME_ 
+		from T_PROCESS_TASK where AREA_UID_ = #{id} GROUP BY PROCESS_NAME_
+	</select>
+	
+	
+	<select id="searchProcessTaskByProIdAndPartId" resultType="java.util.HashMap" >
+		select ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName, 
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, 
+		<if test="dbType == 'mysql'">
+			ifnull(PRINCIPAL_,'') principal, ifnull(SPOT_, '') spot, ifnull(INSPECT_, '') inspect,
+		</if>
+		<if test="dbType == 'mssql'">
+			isnull(PRINCIPAL_,'') principal, isnull(SPOT_, '') spot, isnull(INSPECT_, '') inspect,
+		</if>
+		(select user_name_ from org_user where id_ = a.PRINCIPAL_) principalName,
+		(select name_ from T_WORK_PART where id_ = a.AREA_UID_) partName, 
+		(select user_name_ from org_user where id_ = a.INSPECT_) inspectName, 
+		(select user_name_ from org_user where id_ = a.SPOT_) spotName,  
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate, 
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.START_DATE_,23) startDate, 
+			convert(varchar(100),a.END_DATE_,23) endDate, 
+		</if>
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, ISSUE_COUNT_ issueCount, SORT_ sort
+		from T_PROCESS_TASK a where proj_uid_ = #{projUid}
+		<if test="partId != null and partId != ''">
+			and AREA_UID_ = #{partId}
+		</if>
+		<if test="processId != null and processId != ''">
+			and PROCESS_UID_ = #{processId}
+			<!-- and #{processId} in (select PROCESS_UID_ from T_PROCESS_TASK where CHECKOUT_UID_ = a.id_)   -->
+		</if>
+	</select>
+
+	
+	
+
+
+	<select id="getStatisticsNumObj" resultType="java.util.HashMap">
+		SELECT (SELECT COUNT(ID_) FROM T_PROCESS_TASK WHERE PROJ_UID_=#{projUid}  AND ENABLE_ =1
+		<if test="areaUid != null and areaUid != ''">
+			and AREA_UID_ = #{areaUid}
+		</if>) totalNum,
+		(SELECT COUNT(ID_) FROM T_PROCESS_TASK WHERE PROJ_UID_=#{projUid} AND ENABLE_ =1 AND CONSTRUCTION_STATUS_=0
+		<if test="areaUid != null and areaUid != ''">
+			and AREA_UID_ = #{areaUid}
+		</if>) notConstructionCount,
+		(SELECT COUNT(ID_) FROM T_PROCESS_TASK WHERE PROJ_UID_=#{projUid} AND ENABLE_ =1 AND CONSTRUCTION_STATUS_=1
+		<if test="areaUid != null and areaUid != ''">
+			and AREA_UID_ = #{areaUid}
+		</if>) constructionCount,
+		(SELECT COUNT(ID_) FROM T_PROCESS_TASK WHERE PROJ_UID_=#{projUid} AND ENABLE_ =1 AND CONSTRUCTION_STATUS_=2
+		<if test="areaUid != null and areaUid != ''">
+			and AREA_UID_ = #{areaUid}
+		</if>) awaitCheckNum,
+		(SELECT COUNT(ID_) FROM T_PROCESS_TASK WHERE PROJ_UID_=#{projUid} AND ENABLE_ =1 AND CONSTRUCTION_STATUS_=4
+		<if test="areaUid != null and areaUid != ''">
+			and AREA_UID_ = #{areaUid}
+		</if>) needReworkNum,
+		(SELECT COUNT(ID_) FROM T_PROCESS_TASK WHERE PROJ_UID_=#{projUid} AND ENABLE_ =1 AND CONSTRUCTION_STATUS_=3
+		<if test="areaUid != null and areaUid != ''">
+			and AREA_UID_ = #{areaUid}
+		</if>) finishNum
+	</select>
+
+	<resultMap type="java.util.HashMap" id="searchProcessStatistics">
+		<id property="id" column="ID_" />
+		<id property="name" column="NAME_" />
+		<collection property="children" column="{id = ID_}"  javaType="java.util.List"  select="searchAreaFirstFloor" />
+	</resultMap>
+	
+	<select id="searchAreaTop" resultMap="searchProcessStatistics">
+		select ID_, NAME_
+		from T_WORK_PART a where PROJ_UID_ = #{projUid} and PARENT_UID_ = #{parentUid}
+		and (IF_DELETE_ = 0 or  IF_DELETE_ is null) order by SORT_
+	</select>
+
+	<select id="searchAreaFirstFloor" resultMap="statisticsNumObj">
+		select ID_, NAME_, SORT_ sort,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d') createTime,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),CREATE_TIME_,23) createTime,
+		</if>
+		PROJ_UID_,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, parent_uid_ parentUid
+		from T_WORK_PART a where parent_uid_ = #{id} and (IF_DELETE_ = 0 or  IF_DELETE_ is null)
+		order by SORT_ DESC
+	</select>
+
+	<resultMap type="java.util.HashMap" id="statisticsNumObj">
+		<id property="id" column="ID_" />
+		<id property="name" column="NAME_" />
+		<id property="projUid" column="PROJ_UID_" />
+		<association property="numObj" javaType="java.util.HashMap" column="{projUid=PROJ_UID_,areaUid=ID_}" select="getStatisticsNumObj"/>
+	</resultMap>
+
+	<select id="searchAreaProcess" resultType="java.util.HashMap">
+		select ID_ id, CODE_ code, PROJ_UID_ projUid, STATUS_ status, AREA_UID_ areaUid,
+		AREA_FULL_NAME_ areaFullName, CHECKOUT_UID_ checkoutUid, CHECKOUT_NAME_ checkoutName,
+		PROCESS_UID_ processUid, PROCESS_NAME_ processName, PRINCIPAL_ principal, INSPECT_ inspect,
+		(select user_name_ from org_user where id_ = a.PRINCIPAL_) principalName,
+		(select user_name_ from org_user where id_ = a.INSPECT_) inspectName,
+		(select user_name_ from org_user where id_ = a.SPOT_) spotName, SPOT_ spot,
+		(select REMARK_ from T_PROCESS_CHECKOUT where CHECKOUT_UID_ = a.id_) content,
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.START_DATE_, '%Y-%m-%d') startDate,
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d') endDate,
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.START_DATE_,23) startDate,
+			convert(varchar(100),a.END_DATE_,23) endDate,
+		</if>
+		CONSTRUCTION_STATUS_ constructionStatus, ENABLE_ enable, ISSUE_COUNT_ issueCount, SORT_ sort
+		from T_PROCESS_TASK a where AREA_UID_ = #{id}
+	</select>
+
+
+	
+	
+	<select id="searchConstructionRateMonth" resultType="java.util.HashMap">
+		select CONSTRUCTION_STATUS_ status, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createTime
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createTime
+		</if>
+		from T_PROCESS_TASK a where a.PROJ_UID_ =#{projUid}
+		<if test="date != null and date != ''">
+			<if test="dbType == 'mysql'">
+				and DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') like concat('%', #{date}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and convert(varchar(100),a.CREATE_TIME_,23) like '%'+ #{date} +'%'
+			</if>
+		</if>
+		order by CREATE_TIME_
+	</select>
+	
+	
+	<select id="searchConstructionRateYear" resultType="java.util.HashMap">
+		select CONSTRUCTION_STATUS_ status, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m') createTime, 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(7),a.CREATE_TIME_,23) createTime, 
+		</if>
+		(select count(STATUS_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_) issueStatus,
+		(select count(STATUS_) from T_INSPECT_RECORD where PROCESS_ID_ = a.id_ and STATUS_ = 4) abarbeitungStatus
+		from T_PROCESS_TASK a where a.PROJ_UID_ =#{projUid}
+		<if test="date != null and date != ''">
+			<if test="dbType == 'mysql'">
+				and DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') like concat('%', #{date}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and convert(varchar(100),a.CREATE_TIME_,23) like '%'+ #{date} +'%'
+			</if>
+		</if>
+	</select>
+	
+	
+	<update id="updateInspectStatus">
+		update T_PROCESS_DET set STATUS_ = 0 where PROCESS_TASK_ID_ =#{taskId}
+	</update>
+	
+	
+	<update id="updateTaskStatus"> 
+		update T_PROCESS_TASK set CONSTRUCTION_STATUS_ = 4 where id_ =#{taskId}
+	</update>
+	
+	
+	<select id="searchDrawingInfoByAreaId" resultType="java.util.HashMap" >
+		select 
+		<if test="dbType == 'mssql'">
+			top 1
+		</if>
+		ID_ id, NAME_ name, AREA_UID_ areaUid, 
+		<if test="dbType == 'mysql'">
+			(select ID_ from T_ATTACHMENT where parent_id_ = a.id_ LIMIT 1) pictureId
+		</if>
+		<if test="dbType == 'mssql'">
+			(select top 1 ID_ from T_ATTACHMENT where parent_id_ = a.id_) pictureId
+		</if>
+		from T_DRAWING a where AREA_UID_ = #{id}  
+		<if test="dbType == 'mysql'">
+			LIMIT 1 
+		</if>
+		
+	</select>
+	
+	
+	<!-- 根据工序id查询检查项 -->
+	<select id="searchInspectLists" resultType="java.util.HashMap" >
+		SELECT ID_ id, NAME_ name, NAME_ itemName, SORT_ sort, PARENT_ID_ parentId, SIGN_ sign, TYPE_ type, CHECK_REQUIRE_ checkRequire,
+		PROJ_UID_ projUid, DESIGN_VALUE_ designValue, FORM_TYPE_ formType, LB_ lb, PROJ_TYPE_ projType, MIN_SAMPLE_ minSample, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, COUNT(1) OVER() AS totalCount 
+		from T_PROCESS a where PARENT_ID_ = #{parentUid} and (LB_ ='检查项' or LB_ = '实测项')
+	</select>
+	
+	
+	<select id="checkInspection" resultType="java.util.HashMap">
+		select isnull(count(id_),0) countName from T_PROCESS_CHECKOUT where PROJ_UID_ = #{projUid} and NAME_ = #{name}
+	</select>
+	
+	
+	<select id="searchIssueCount" resultType="Integer" >
+		select count(STATUS_) issueStatus
+		from  T_INSPECT_RECORD where PROJ_UID_ = #{projUid} and FORM_TYPE_ ='process'
+		 and DATA_TYPE_ = 'inspect'
+	</select>
+	
+	
+	<select id="searchabarbeitungCount" resultType="java.util.HashMap">
+		select count(STATUS_) abarbeitungStatus, 
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createTime 
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createTime 
+		</if>
+		from T_INSPECT_RECORD a where STATUS_ = 4 and FORM_TYPE_ ='process'
+		and PROJ_UID_ = #{projUid}
+		<if test="date != null and date != ''">
+			<if test="dbType == 'mysql'">
+				and DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') like concat('%', #{date}, '%')
+			</if>
+			<if test="dbType == 'mssql'">
+				and convert(varchar(100),a.CREATE_TIME_,23) like '%'+ #{date} +'%'
+			</if>
+		</if>
+		group by CREATE_TIME_
+	</select>
+	
+	
+	<update id="updateInspectStatusByInspectid">
+		update T_PROCESS_DET set STATUS_ = #{type} where PROCESS_TASK_ID_ = #{taskId} and PROCESS_ID_ = #{id}
+		<!-- <foreach collection="idss" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach>  -->
+	</update>
+	
+	
+	<select id="searchProcessDetails" resultType="Integer">
+		select count(id_) from T_PROCESS_DET where PROCESS_TASK_ID_ = #{taskId} and PROCESS_ID_ = #{id}
+	</select>
+	
+	
+	<!-- 导出 -->
+	<select id="export" resultType="java.util.HashMap" >
+		select SN_ sn,LB_ lb,
+		ID_, ID_ businessKey,INSPECT_ITEM_UID_ ,STATUS_ status,CHECK_TYPE_ checkType, CREATE_TIME_,UPDATE_TIME_,DESC_ desc_,DATA_TYPE_,
+		case STATUS_ when '0' then '记录' when '1' then '未指派' when '2' then '待修复' when '3' then '待销项' when '4' then '已销项' when '5' then '已销项' else '' end as statusName,
+		(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) checkerName,CREATE_USER_ createUser,FORM_TYPE_ formType,INSPECT_ITEM_NAME_ inspectItem,
+		INSPECT_PART_NAME_ inspectPart,RECTIFY_DEADLINE_,
+		(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) PICTURE_,
+		(select USER_NAME_ from ORG_USER where ID_=D.RECTIFY_PRINCIPAL_UID_) rectifyPrincipal,
+		(select POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_= #{projUid}) POSITION_,
+		(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=D.ID_) commentCount,
+		(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_) lookCount,
+		(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.ID_ AND IS_LIKE_=1) likeCount,
+		(select XMMC_ from WX_PROJECT where ID_=D.PROJ_UID_) projName 
+		from  T_INSPECT_RECORD D where PROJ_UID_=#{projUid} and DATA_TYPE_ = 'inspect'
+		
+		<!-- 区域 -->
+		<if test="areaUid != null and areaUid != '' ">
+				and D.INSPECT_PART_UID_ = #{areaUid}
+		</if>
+		
+		<!-- 状态 -->
+		<if test="status != null and status != ''">
+				and D.STATUS_ = #{status}
+		</if>
+		
+		<!-- 整改人 -->
+		<if test="abarbeitungUid != null and abarbeitungUid != ''">
+				and RECTIFY_PRINCIPAL_UID_ = #{abarbeitungUid}
+		</if>
+		
+		<if test="search != null and search !='' ">
+			<if test="dbType == 'mysql' ">
+				and (INSPECT_ITEM_NAME_ like concat('%', #{search}, '%') OR INSPECT_PART_NAME_ like concat('%', #{search}, '%'))
+			</if>
+			<if test="dbType == 'mysql' ">
+				and (INSPECT_ITEM_NAME_ like '%'+#{search}+'%' OR INSPECT_PART_NAME_ like '%'+#{search}+'%')
+			</if>
+		</if>
+		
+	</select>
+</mapper> 

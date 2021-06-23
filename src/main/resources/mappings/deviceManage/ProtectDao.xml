@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+
+<mapper namespace="com.jrsoft.modules.deviceManage.protect.dao.ProtectDao">
+
+    <resultMap type="java.util.HashMap" id="getProtectListMap">
+        <id property="id" column="ID_"/>
+        <result property="totalCount" column="TOTAL_COUNT_"/>
+        <result property="projUid" column="PROJ_UID_"/>
+        <result property="date" column="DATE_FORMAT" jdbcType="DATE"/>
+        <result property="hour" column="HOUR_"/>
+        <result property="minute" column="MINUTE_"/>
+        <result property="recorder" column="RECORDER_"/>
+        <result property="recorderUid" column="RECORDER_UID_"/>
+        <result property="remark" column="REMARK_"/>
+        <result property="maintainType" column="MAINTAIN_TYPE_"/>
+        <result property="description" column="DESCRIPTION_"/>
+        <result property="protectType" column="PROTECT_TYPE_"/>
+        <result property="deviceUid" column="DEVICE_UID_"/>
+        <result property="subCompany" column="SUB_COMPANY_"/>
+        <result property="createUser" column="CREATE_USER_NAME_"/>
+        <result property="sort" column="SORT_"/>
+
+        <result property="totalHourCount" column="TOTAL_HOUR_COUNT_"/>
+        <result property="totalMinuteCount" column="TOTAL_MINUTE_COUNT_"/>
+        <result property="totalMaintainCount" column="TOTAL_MAINTAIN_COUNT_"/>
+        <result property="totalRepairCount" column="TOTAL_REPAIR_COUNT_"/>
+        <collection property="flieList" column="{parentId=ID_}" javaType="java.util.List"  select="com.jrsoft.modules.construction.dao.InspectDao.selectFileList" />
+    </resultMap>
+
+    <!--根据projUID 和 deviceUid 查询维修记录-->
+    <select id="getProtectListOld" resultMap="getProtectListMap">
+        DECLARE @pageIndex INT =#{ pageIndex }
+        DECLARE @pageSize INT =#{ pageSize }
+        SELECT * FROM (
+        SELECT TOP (@pageSize)
+            D_D_P.* ,
+            (SELECT COUNT (ID_)
+                  FROM DM_DEVICE_PROTECT
+                WHERE
+                    PROJ_UID_ = #{ projUid }
+                    AND	 PROTECT_TYPE_ = #{ protectType }
+                    AND	 DEVICE_UID_ = #{ deviceUid }
+                )AS TOTAL_COUNT_ , -- 总数
+
+            (SELECT SUM(HOUR_)
+                  FROM DM_DEVICE_PROTECT
+                WHERE
+                    PROJ_UID_ = #{ projUid }
+                    AND	 PROTECT_TYPE_ = #{ protectType }
+                    AND	 DEVICE_UID_ = #{ deviceUid }
+                )AS TOTAL_HOUR_COUNT_ , -- 使用时长总小时
+
+            (SELECT SUM(MINUTE_)
+                  FROM DM_DEVICE_PROTECT
+                WHERE
+                    PROJ_UID_ = #{ projUid }
+                    AND	 PROTECT_TYPE_ = #{ protectType }
+                    AND	 DEVICE_UID_ = #{ deviceUid }
+                )AS TOTAL_MINUTE_COUNT_ , -- 使用时长总分钟
+
+            (SELECT COUNT (ID_)
+                  FROM DM_DEVICE_PROTECT
+                WHERE
+                    PROJ_UID_ = #{ projUid }
+                    AND	 PROTECT_TYPE_ = #{ protectType }
+                    AND	 DEVICE_UID_ = #{ deviceUid }
+                )AS TOTAL_MAINTAIN_COUNT_ , -- 使用维护保养次数
+
+            (SELECT COUNT (ID_)
+                  FROM DM_DEVICE_PROTECT
+                WHERE
+                    PROJ_UID_ = #{ projUid }
+                    AND	 PROTECT_TYPE_ = #{ protectType }
+                    AND	 DEVICE_UID_ = #{ deviceUid }
+                )AS TOTAL_REPAIR_COUNT_ , -- 使用维修次数
+
+            convert(varchar(16), D_D_P.DATE_,23) DATE_FORMAT ,
+            convert(varchar(16), D_D_P.CREATE_TIME_,120) createTime ,
+            convert(varchar(16), D_D_P.UPDATE_TIME_,120) updateTime
+        FROM DM_DEVICE_PROTECT D_D_P
+        WHERE
+            D_D_P.PROJ_UID_ = #{ projUid }
+            AND	 D_D_P.PROTECT_TYPE_ = #{ protectType }
+            AND	 D_D_P.DEVICE_UID_ = #{ deviceUid }
+            -- 分页
+                AND
+                    CONVERT(varchar(100), D_D_P.CREATE_TIME_ , 130)
+                    >=
+                    CONVERT(varchar(100),
+                     (
+                            SELECT
+                                MIN(CREATE_TIME_)
+                            FROM (
+                                SELECT TOP ( @pageIndex * @pageSize)
+                                    D_D_P_S.ID_,
+                                    D_D_P_S.CREATE_TIME_
+                                FROM DM_DEVICE_PROTECT D_D_P_S
+                                WHERE
+                                    D_D_P_S.PROJ_UID_ = #{ projUid }
+                                    AND	 D_D_P_S.PROTECT_TYPE_ = #{ protectType }
+                                    AND	 D_D_P_S.DEVICE_UID_ = #{ deviceUid }
+                                    ORDER BY D_D_P_S.CREATE_TIME_  DESC
+                            ) VAL
+                        )
+                     , 130)
+        ORDER BY D_D_P.CREATE_TIME_ ASC
+        ) DDD ORDER BY CREATE_TIME_ DESC
+
+    </select>
+
+    <!--根据projUID 和 deviceUid 查询维修记录-->
+    <select id="getProtectList" resultMap="getProtectListMap">
+      SELECT  * FROM( SELECT  ROW_NUMBER () OVER ( ORDER BY CREATE_TIME_ DESC ) AS Rownumver,
+                D_D_P.* ,
+                ( SELECT COUNT ( ID_ ) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{ projUid } AND PROTECT_TYPE_ = 'duration' AND DEVICE_UID_ = #{ deviceUid } ) AS TOTAL_COUNT_,
+                ( SELECT SUM ( HOUR_ ) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{ projUid } AND PROTECT_TYPE_ = 'duration' AND DEVICE_UID_ = #{ deviceUid } ) AS TOTAL_HOUR_COUNT_,
+                ( SELECT SUM ( MINUTE_ ) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{ projUid } AND PROTECT_TYPE_ = 'duration' AND DEVICE_UID_ = #{ deviceUid } ) AS TOTAL_MINUTE_COUNT_,
+                ( SELECT COUNT ( ID_ ) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{ projUid } AND PROTECT_TYPE_ = 'maintain' AND DEVICE_UID_ = #{ deviceUid } ) AS TOTAL_MAINTAIN_COUNT_,
+                ( SELECT COUNT ( ID_ ) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{ projUid } AND PROTECT_TYPE_ = 'repair' AND DEVICE_UID_ = #{ deviceUid } ) AS TOTAL_REPAIR_COUNT_,
+                CONVERT ( VARCHAR ( 16 ), D_D_P.DATE_, 23 ) DATE_FORMAT,
+                (SELECT  USER_NAME_ FROM  ORG_USER WHERE ID_=D_D_P.CREATE_USER_) CREATE_USER_NAME_,
+                CONVERT ( VARCHAR ( 16 ), D_D_P.CREATE_TIME_, 120 ) createTime,
+                CONVERT ( VARCHAR ( 16 ), D_D_P.UPDATE_TIME_, 120 ) updateTime
+            FROM
+                DM_DEVICE_PROTECT D_D_P
+            WHERE
+                D_D_P.PROJ_UID_ = #{ projUid }
+                AND D_D_P.PROTECT_TYPE_ = #{ protectType }
+                AND D_D_P.DEVICE_UID_ = #{ deviceUid }
+            ) DATA_
+        WHERE
+            ( DATA_.Rownumver BETWEEN #{ startIndex } AND #{ endIndex } )
+        ORDER BY
+            DATA_.CREATE_TIME_ DESC
+    </select>
+    
+    
+    <!--根据projUID 和 deviceUid 查询维修记录(MySql) -->
+    <select id="getProtectListMySql" resultMap="getProtectListMap">
+      SELECT  * FROM( SELECT 
+                D_D_P.* ,
+                (SELECT COUNT(ID_) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{projUid} AND PROTECT_TYPE_ = 'duration' AND DEVICE_UID_ = #{deviceUid} ) AS TOTAL_COUNT_,
+                (SELECT SUM(HOUR_) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{projUid} AND PROTECT_TYPE_ = 'duration' AND DEVICE_UID_ = #{deviceUid} ) AS TOTAL_HOUR_COUNT_,
+                (SELECT SUM(MINUTE_) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{projUid} AND PROTECT_TYPE_ = 'duration' AND DEVICE_UID_ = #{deviceUid} ) AS TOTAL_MINUTE_COUNT_,
+                (SELECT COUNT(ID_) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{projUid} AND PROTECT_TYPE_ = 'maintain' AND DEVICE_UID_ = #{deviceUid} ) AS TOTAL_MAINTAIN_COUNT_,
+                (SELECT COUNT(ID_) FROM DM_DEVICE_PROTECT WHERE PROJ_UID_ = #{projUid} AND PROTECT_TYPE_ = 'repair' AND DEVICE_UID_ = #{deviceUid} ) AS TOTAL_REPAIR_COUNT_,
+                DATE_FORMAT(D_D_P.DATE_, '%Y-%m-%d') DATE_FORMAT,
+                (SELECT  USER_NAME_ FROM  ORG_USER WHERE ID_=D_D_P.CREATE_USER_) CREATE_USER_NAME_,
+                DATE_FORMAT(D_D_P.CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+                DATE_FORMAT(D_D_P.UPDATE_TIME_, '%Y-%m-%d %H:%i') updateTime
+            FROM
+                DM_DEVICE_PROTECT D_D_P
+            WHERE
+                D_D_P.PROJ_UID_ = #{projUid}
+                AND D_D_P.PROTECT_TYPE_ = #{protectType}
+                AND D_D_P.DEVICE_UID_ = #{deviceUid}
+            ) DATA_
+        ORDER BY
+            DATA_.CREATE_TIME_ DESC LIMIT #{startIndex}, #{endIndex}
+    </select>
+
+    <!--根据projUID 和 deviceUid 查询维修记录总数-->
+    <select id="getProtectListTotalCount" resultType="int">
+       SELECT COUNT(D_D_P.ID_)
+        FROM
+            DM_DEVICE_PROTECT D_D_P
+        WHERE
+            D_D_P.PROJ_UID_ = #{projUid}
+        AND D_D_P.PROTECT_TYPE_ = #{protectType}
+        AND D_D_P.DEVICE_UID_ = #{deviceUid}
+    </select>
+</mapper>

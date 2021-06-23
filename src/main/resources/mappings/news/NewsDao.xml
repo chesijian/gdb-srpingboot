@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.news.dao.NewsManageDao">
+
+	<!-- 根据项目id查询公告列表 -->
+	<select id="searchNewsList" resultMap="newsList">
+		SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ DESC) as Rownumver, 
+			ID_ id, PROJ_UID_ projId, LOOK_TYPE_ lookType, TYPE_ type, SUBJECT_ title, CONTENT_ content, READ_NUM_ readNum, LIKE_NUM_ likeNum, 
+			
+			a.id_ keyId, '/api_v1/business/news/NewsDetailsById' url, 'News/NewsAdd' formUrl,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount,
+			convert(varchar(100),a.DATE_,23) date,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName,  
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_TIME_, TOP_ tops 
+			from T_NEWS a where COMPANY_ = #{companyUid}
+			<if test="projUid != null and projUid != ''">
+				and PROJ_UID_ = #{projUid}
+			</if>
+			
+			<if test="type != null and type != ''">
+				and type_ = #{type}
+			</if>
+		<choose>
+		    <when test="isCompanyAdmin">
+		       and 1 = 1
+		    </when>
+		    <otherwise>
+		       and (a.id_ in (select news_uid_ from T_NEWS_USER where user_uid_ = #{userUid}) or create_user_ = #{userUid} or (select count(id_) from T_NEWS_USER where news_uid_ = a.id_) = 0)   
+		    </otherwise>
+		</choose>
+		<if test="search != null and search != ''">
+			and (SUBJECT_ like '%'+ #{search} +'%' or (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) like '%'+ #{search} + '%')
+		</if>
+		) data where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="newsList">
+		<id property="id" column="id" />
+		<collection property="picture" column="{parentUid = id}"  javaType="java.util.List"  select="selectPictureList" />
+		<collection property="informPerson" column="{parentUid = id}"  javaType="java.util.List"  select="selectInformPersonList" />
+	</resultMap>
+	
+	
+	<!-- 查询公告图片 -->
+	<select id="selectPictureList" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate 
+		from T_ATTACHMENT a where parent_id_ = #{parentUid}
+	</select>
+	
+	
+	<!-- 查询公告图片 (MySql)-->
+	<select id="selectPictureListMySql" resultType="java.util.HashMap">
+		select ID_ id, file_name_ fileName, suffix_ suffix, xtype_ type, size_ size, 
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUser, 
+		DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate 
+		from T_ATTACHMENT a where parent_id_ = #{parentUid}
+	</select>
+	
+	
+	<!-- 查询公告通知人 -->
+	<select id="selectInformPersonList" resultType="java.util.HashMap" >
+		select user_uid_ userId, user_name_ userName, 
+		(select PICTURE_ from org_user where ID_ = a.user_uid_ ) picture 
+		from T_NEWS_USER a where news_uid_ = #{parentUid}
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="newsListMysql">
+		<id property="id" column="id" />
+		<collection property="picture" column="{parentUid = id}"  javaType="java.util.List"  select="selectPictureListMySql" />
+		<collection property="informPerson" column="{parentUid = id}"  javaType="java.util.List"  select="selectInformPersonList" />
+	</resultMap>
+	
+	
+	<!-- 根据id查询新闻公告详情 -->
+	<select id="searchNewsById" resultMap="newsList">
+		select ID_ id, PROJ_UID_ projId, LOOK_TYPE_ lookType, TYPE_ type, SUBJECT_ subject, CONTENT_ content, READ_NUM_ readNum, LIKE_NUM_ likeNum, 
+		a.CREATE_TIME_ createTime, a.content_ description,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) title,
+		(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ and USER_UID_ = #{userUid}) isLike,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		CREATE_TIME_, TOP_ tops,  
+		convert(varchar(100),a.DATE_,23) date
+		from T_NEWS a where id_ = #{id} 
+	</select>
+	
+	<!-- 根据id查询新闻公告详情(MySql) -->
+	<select id="searchNewsByIdMySql" resultMap="newsListMysql">
+		select ID_ id, PROJ_UID_ projId, LOOK_TYPE_ lookType, TYPE_ type, SUBJECT_ subject, CONTENT_ content, READ_NUM_ readNum, LIKE_NUM_ likeNum, 
+		a.CREATE_TIME_ createTime, a.content_ description,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) title,
+		(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ and USER_UID_ = #{userUid}) isLike,
+		(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		<!-- Mysql -->
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, 			
+		</if>
+		<!-- sqlServer -->
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+		</if>
+		
+		CREATE_TIME_, TOP_ tops,  
+		<!-- Mysql -->
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.DATE_, '%Y-%m-%d') date			
+		</if>
+		<!-- sqlServer -->
+		<if test="dbType == 'mssql'">
+			convert(varchar(100),a.DATE_,23) date
+		</if>
+		from T_NEWS a where id_ = #{id} 
+	</select>
+	
+	
+	<!-- 根据ids删除新闻公告 -->
+	<delete id="deleteNewsByIds" >
+		DELETE FROM T_NEWS WHERE ID_ in
+		<foreach collection="ids" item="id" open="(" close=")" separator="," >
+					#{id}
+		</foreach>
+	</delete>
+	
+	
+	<!-- 根据项目id查询公告列表 (MySql)-->
+	<select id="searchNewsListMySql" resultMap="newsListMysql">
+		SELECT * FROM (
+			select ID_ id, PROJ_UID_ projId, LOOK_TYPE_ lookType, TYPE_ type, SUBJECT_ title, CONTENT_ content, READ_NUM_ readNum, LIKE_NUM_ likeNum, 
+			a.id_ keyId, '/api_v1/business/news/NewsDetailsById' url, 'News/NewsAdd' formUrl,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount,
+			DATE_FORMAT(a.DATE_, '%Y-%m-%d') date,
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName,  
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREATE_TIME_, TOP_ tops 
+			from T_NEWS a where COMPANY_ = #{companyUid}
+			<if test="projUid != null and projUid != ''">
+				and PROJ_UID_ = #{projUid}
+			</if>
+			
+			<if test="type != null and type != ''">
+				and type_ = #{type}
+			</if>
+		<choose>
+		    <when test="isCompanyAdmin">
+		       and 1 = 1
+		    </when>
+		    <otherwise>
+		       and (a.id_ in (select news_uid_ from T_NEWS_USER where user_uid_ = #{userUid}) or create_user_ = #{userUid} or (select count(id_) from T_NEWS_USER where news_uid_ = a.id_) = 0)   
+		    </otherwise>
+		</choose>
+		<if test="search != null and search != ''">
+			and (SUBJECT_ like '%'+ #{search} +'%' or (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) like '%'+ #{search} + '%')
+		</if>
+		) data order by CREATE_TIME_ desc LIMIT  #{start}, #{end}
+	</select>
+	
+</mapper> 

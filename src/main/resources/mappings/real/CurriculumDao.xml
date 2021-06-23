@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.CurriculumDao">
+
+    <!--获取培训课程列表-->
+    <select id="getCurriculumList" resultType="java.util.HashMap">
+        SELECT
+            A.ID_ AS id,
+            A.COURSE_TITLE_ AS courseTitle,
+            A.TRAINING_TYPE_ AS trainingType,
+            A.TRAINING_DATE_ AS trainingDate,
+            COUNT(B.WORKER_UID_) AS workerCount
+        FROM
+            R_CURRICULUM A
+            LEFT JOIN R_TRAINING_DETAIL B ON (A.ID_ = B.CURRICULUM_UID_)
+        WHERE
+            A.PROJ_UID_ = #{projUid}
+                  AND A.COMPANY_ = #{companyUid}
+        GROUP BY
+            A.ID_,
+            A.COURSE_TITLE_,
+            A.TRAINING_TYPE_,
+            A.TRAINING_DATE_
+        ORDER BY
+            A.TRAINING_DATE_ DESC
+    </select>
+
+    <!-- 根据项目编号来得到培训课程信息 -->
+    <select id="getCurriculumListByProjUid" resultType="java.util.HashMap">
+        SELECT *, (select PROJECT_CODE_ from WX_PROJECT where id_ = a.PROJ_UID_) projectCode
+        FROM R_CURRICULUM a WHERE PROJ_UID_=#{projUid}
+    </select>
+    
+    
+    <!-- 更新编码 -->
+    <update id="updateTrainCode">
+    	update R_CURRICULUM set TRAIN_CODE_ = #{trainCode}, PUSH_STATUS_ = 2 where id_ = #{id}
+    </update>
+</mapper>

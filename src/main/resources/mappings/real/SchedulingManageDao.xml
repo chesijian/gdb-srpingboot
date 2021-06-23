@@ -1,0 +1,1036 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.SchedulingManageDao">
+
+    <!--获取排班列表-->
+    <select id="getSchedulingList" resultType="java.util.HashMap">
+        SELECT
+            R_SCHEDULING.ID_ AS schedulingId,
+            R_SCHEDULING.PROJ_UID_ AS projUid,
+            R_SCHEDULING.SCHEDULING_NAME_ AS schedulingName,
+            R_SCHEDULING.SCHEDULING_DATE_ AS schedulingDate
+        FROM
+            R_SCHEDULING
+        WHERE R_SCHEDULING.COMPANY_ = #{companyUid}
+          AND R_SCHEDULING.PROJ_UID_ = #{projUid}
+          ORDER BY R_SCHEDULING.SCHEDULING_DATE_ DESC
+    </select>
+
+    <!--插入排班员工-->
+    <insert id="addBatchSchedulingDetail" parameterType="java.util.List">
+        INSERT INTO R_SCHEDULING_DETAIL ( ID_, PROJ_UID_, SCHEDULING_UID_, WORKER_UID_,
+        SCHEDULING_DETAIL_DATE_,CREATE_USER_,
+        CREATE_TIME_,UPDATE_USER_,UPDATE_TIME_,SUB_COMPANY_,COMPANY_ )
+        VALUES
+        <foreach collection="dataList" item="item" index="index" separator=",">
+            (
+            #{ item.id,jdbcType = VARCHAR},
+            #{ item.projUid,jdbcType = VARCHAR},
+            #{ item.schedulingUid,jdbcType = VARCHAR},
+            #{ item.workerUid,jdbcType = VARCHAR},
+            #{ item.schedulingDetailDate,jdbcType = VARCHAR},
+            #{ item.createUser,jdbcType = VARCHAR },
+            #{ item.createTime,jdbcType = TIMESTAMP},
+            #{ item.updateUser,jdbcType = VARCHAR},
+            #{ item.updateTime,jdbcType = TIMESTAMP},
+            #{ item.subCompany,jdbcType = VARCHAR},
+            #{ item.company,jdbcType = VARCHAR}
+            )
+        </foreach>
+    </insert>
+
+    <!--更新员工排班计划-->
+    <update id="updBatchSchedulingDetail">
+        UPDATE R_SCHEDULING_DETAIL
+        SET
+        <foreach collection="dayNumVals" item="dayNumVal" open=" " separator="," close=" ">
+            ${dayNumVal}
+        </foreach>
+        ,UPDATE_USER_ = #{updateUser}
+        ,UPDATE_TIME_ = #{updateTime}
+        WHERE ID_ IN
+        <foreach collection="idList" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </update>
+
+    <!--获取排班列表-->
+    <select id="getSchedulingDetailList" resultType="java.util.HashMap">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.SCHEDULING_DETAIL_DATE_ DESC ) AS Rownumver,
+        A.ID_ AS id,
+        B.NAME_ AS name,
+        A.SCHEDULING_DETAIL_DATE_ AS schedulingDetailDate,
+        <choose>
+            <when test="shiftUid !=null and shiftUid != ''">
+                CASE
+
+                WHEN A.DAY_1_ = #{shiftUid} THEN
+                SHIFTS_1.SHIFTS_NAME_
+                END AS day1,
+                CASE
+
+                WHEN A.DAY_1_ = #{shiftUid} THEN
+                SHIFTS_1.SHIFTS_COLOUR_
+                END AS day1Colour,
+                CASE
+
+                WHEN A.DAY_2_ = #{shiftUid} THEN
+                SHIFTS_2.SHIFTS_NAME_
+                END AS day2,
+                CASE
+
+                WHEN A.DAY_2_ = #{shiftUid} THEN
+                SHIFTS_2.SHIFTS_COLOUR_
+                END AS day2Colour,
+                CASE
+
+                WHEN A.DAY_3_ = #{shiftUid} THEN
+                SHIFTS_3.SHIFTS_NAME_
+                END AS day3,
+                CASE
+
+                WHEN A.DAY_3_ = #{shiftUid} THEN
+                SHIFTS_3.SHIFTS_COLOUR_
+                END AS day3Colour,
+                CASE
+
+                WHEN A.DAY_4_ = #{shiftUid} THEN
+                SHIFTS_4.SHIFTS_NAME_
+                END AS day4,
+                CASE
+
+                WHEN A.DAY_4_ = #{shiftUid} THEN
+                SHIFTS_4.SHIFTS_COLOUR_
+                END AS day4Colour,
+                CASE
+
+                WHEN A.DAY_5_ = #{shiftUid} THEN
+                SHIFTS_5.SHIFTS_NAME_
+                END AS day5,
+                CASE
+
+                WHEN A.DAY_5_ = #{shiftUid} THEN
+                SHIFTS_5.SHIFTS_COLOUR_
+                END AS day5Colour,
+                CASE
+
+                WHEN A.DAY_6_ = #{shiftUid} THEN
+                SHIFTS_6.SHIFTS_NAME_
+                END AS day6,
+                CASE
+
+                WHEN A.DAY_6_ = #{shiftUid} THEN
+                SHIFTS_6.SHIFTS_COLOUR_
+                END AS day6Colour,
+                CASE
+
+                WHEN A.DAY_7_ = #{shiftUid} THEN
+                SHIFTS_7.SHIFTS_NAME_
+                END AS day7,
+                CASE
+
+                WHEN A.DAY_7_ = #{shiftUid} THEN
+                SHIFTS_7.SHIFTS_COLOUR_
+                END AS day7Colour,
+                CASE
+
+                WHEN A.DAY_8_ = #{shiftUid} THEN
+                SHIFTS_8.SHIFTS_NAME_
+                END AS day8,
+                CASE
+
+                WHEN A.DAY_8_ = #{shiftUid} THEN
+                SHIFTS_8.SHIFTS_COLOUR_
+                END AS day8Colour,
+                CASE
+
+                WHEN A.DAY_9_ = #{shiftUid} THEN
+                SHIFTS_9.SHIFTS_NAME_
+                END AS day9,
+                CASE
+
+                WHEN A.DAY_9_ = #{shiftUid} THEN
+                SHIFTS_9.SHIFTS_COLOUR_
+                END AS day9Colour,
+                CASE
+
+                WHEN A.DAY_10_ = #{shiftUid} THEN
+                SHIFTS_10.SHIFTS_NAME_
+                END AS day10,
+                CASE
+
+                WHEN A.DAY_10_ = #{shiftUid} THEN
+                SHIFTS_10.SHIFTS_COLOUR_
+                END AS day10Colour,
+                CASE
+
+                WHEN A.DAY_11_ = #{shiftUid} THEN
+                SHIFTS_11.SHIFTS_NAME_
+                END AS day11,
+                CASE
+
+                WHEN A.DAY_11_ = #{shiftUid} THEN
+                SHIFTS_11.SHIFTS_COLOUR_
+                END AS day11Colour,
+                CASE
+
+                WHEN A.DAY_12_ = #{shiftUid} THEN
+                SHIFTS_12.SHIFTS_NAME_
+                END AS day12,
+                CASE
+
+                WHEN A.DAY_12_ = #{shiftUid} THEN
+                SHIFTS_12.SHIFTS_COLOUR_
+                END AS day12Colour,
+                CASE
+
+                WHEN A.DAY_13_ = #{shiftUid} THEN
+                SHIFTS_13.SHIFTS_NAME_
+                END AS day13,
+                CASE
+
+                WHEN A.DAY_13_ = #{shiftUid} THEN
+                SHIFTS_13.SHIFTS_COLOUR_
+                END AS day13Colour,
+                CASE
+
+                WHEN A.DAY_14_ = #{shiftUid} THEN
+                SHIFTS_14.SHIFTS_NAME_
+                END AS day14,
+                CASE
+
+                WHEN A.DAY_14_ = #{shiftUid} THEN
+                SHIFTS_14.SHIFTS_COLOUR_
+                END AS day14Colour,
+                CASE
+
+                WHEN A.DAY_15_ = #{shiftUid} THEN
+                SHIFTS_15.SHIFTS_NAME_
+                END AS day15,
+                CASE
+
+                WHEN A.DAY_15_ = #{shiftUid} THEN
+                SHIFTS_15.SHIFTS_COLOUR_
+                END AS day15Colour,
+                CASE
+
+                WHEN A.DAY_16_ = #{shiftUid} THEN
+                SHIFTS_16.SHIFTS_NAME_
+                END AS day16,
+                CASE
+
+                WHEN A.DAY_16_ = #{shiftUid} THEN
+                SHIFTS_16.SHIFTS_COLOUR_
+                END AS day16Colour,
+                CASE
+
+                WHEN A.DAY_17_ = #{shiftUid} THEN
+                SHIFTS_17.SHIFTS_NAME_
+                END AS day17,
+                CASE
+
+                WHEN A.DAY_17_ = #{shiftUid} THEN
+                SHIFTS_17.SHIFTS_COLOUR_
+                END AS day17Colour,
+                CASE
+
+                WHEN A.DAY_18_ = #{shiftUid} THEN
+                SHIFTS_18.SHIFTS_NAME_
+                END AS day18,
+                CASE
+
+                WHEN A.DAY_18_ = #{shiftUid} THEN
+                SHIFTS_18.SHIFTS_COLOUR_
+                END AS day18Colour,
+                CASE
+
+                WHEN A.DAY_19_ = #{shiftUid} THEN
+                SHIFTS_19.SHIFTS_NAME_
+                END AS day19,
+                CASE
+
+                WHEN A.DAY_19_ = #{shiftUid} THEN
+                SHIFTS_19.SHIFTS_COLOUR_
+                END AS day19Colour,
+                CASE
+
+                WHEN A.DAY_20_ = #{shiftUid} THEN
+                SHIFTS_20.SHIFTS_NAME_
+                END AS day20,
+                CASE
+
+                WHEN A.DAY_20_ = #{shiftUid} THEN
+                SHIFTS_20.SHIFTS_COLOUR_
+                END AS day20Colour,
+                CASE
+
+                WHEN A.DAY_21_ = #{shiftUid} THEN
+                SHIFTS_21.SHIFTS_NAME_
+                END AS day21,
+                CASE
+
+                WHEN A.DAY_21_ = #{shiftUid} THEN
+                SHIFTS_21.SHIFTS_COLOUR_
+                END AS day21Colour,
+                CASE
+
+                WHEN A.DAY_22_ = #{shiftUid} THEN
+                SHIFTS_22.SHIFTS_NAME_
+                END AS day22,
+                CASE
+
+                WHEN A.DAY_22_ = #{shiftUid} THEN
+                SHIFTS_22.SHIFTS_COLOUR_
+                END AS day22Colour,
+                CASE
+
+                WHEN A.DAY_23_ = #{shiftUid} THEN
+                SHIFTS_23.SHIFTS_NAME_
+                END AS day23,
+                CASE
+
+                WHEN A.DAY_23_ = #{shiftUid} THEN
+                SHIFTS_23.SHIFTS_COLOUR_
+                END AS day23Colour,
+                CASE
+
+                WHEN A.DAY_24_ = #{shiftUid} THEN
+                SHIFTS_24.SHIFTS_NAME_
+                END AS day24,
+                CASE
+
+                WHEN A.DAY_24_ = #{shiftUid} THEN
+                SHIFTS_24.SHIFTS_COLOUR_
+                END AS day24Colour,
+                CASE
+
+                WHEN A.DAY_25_ = #{shiftUid} THEN
+                SHIFTS_25.SHIFTS_NAME_
+                END AS day25,
+                CASE
+
+                WHEN A.DAY_25_ = #{shiftUid} THEN
+                SHIFTS_25.SHIFTS_COLOUR_
+                END AS day25Colour,
+                CASE
+
+                WHEN A.DAY_26_ = #{shiftUid} THEN
+                SHIFTS_26.SHIFTS_NAME_
+                END AS day26,
+                CASE
+
+                WHEN A.DAY_26_ = #{shiftUid} THEN
+                SHIFTS_26.SHIFTS_COLOUR_
+                END AS day26Colour,
+                CASE
+
+                WHEN A.DAY_27_ = #{shiftUid} THEN
+                SHIFTS_27.SHIFTS_NAME_
+                END AS day27,
+                CASE
+
+                WHEN A.DAY_27_ = #{shiftUid} THEN
+                SHIFTS_27.SHIFTS_COLOUR_
+                END AS day27Colour,
+                CASE
+
+                WHEN A.DAY_28_ = #{shiftUid} THEN
+                SHIFTS_28.SHIFTS_NAME_
+                END AS day28,
+                CASE
+
+                WHEN A.DAY_28_ = #{shiftUid} THEN
+                SHIFTS_28.SHIFTS_COLOUR_
+                END AS day28Colour,
+                CASE
+
+                WHEN A.DAY_29_ = #{shiftUid} THEN
+                SHIFTS_29.SHIFTS_NAME_
+                END AS day29,
+                CASE
+
+                WHEN A.DAY_29_ = #{shiftUid} THEN
+                SHIFTS_29.SHIFTS_COLOUR_
+                END AS day29Colour,
+                CASE
+
+                WHEN A.DAY_30_ = #{shiftUid} THEN
+                SHIFTS_30.SHIFTS_NAME_
+                END AS day30,
+                CASE
+
+                WHEN A.DAY_30_ = #{shiftUid} THEN
+                SHIFTS_30.SHIFTS_COLOUR_
+                END AS day30Colour,
+                CASE
+
+                WHEN A.DAY_31_ = #{shiftUid} THEN
+                SHIFTS_31.SHIFTS_NAME_
+                END AS day31,
+                CASE
+
+                WHEN A.DAY_31_ = #{shiftUid} THEN
+                SHIFTS_31.SHIFTS_COLOUR_
+                END AS day31Colour
+            </when>
+            <otherwise>
+                SHIFTS_1.SHIFTS_NAME_ AS day1,
+                SHIFTS_1.SHIFTS_COLOUR_ AS day1Colour,
+                SHIFTS_2.SHIFTS_NAME_ AS day2,
+                SHIFTS_2.SHIFTS_COLOUR_ AS day2Colour,
+                SHIFTS_3.SHIFTS_NAME_ AS day3,
+                SHIFTS_3.SHIFTS_COLOUR_ AS day3Colour,
+                SHIFTS_4.SHIFTS_NAME_ AS day4,
+                SHIFTS_4.SHIFTS_COLOUR_ AS day4Colour,
+                SHIFTS_5.SHIFTS_NAME_ AS day5,
+                SHIFTS_5.SHIFTS_COLOUR_ AS day5Colour,
+                SHIFTS_6.SHIFTS_NAME_ AS day6,
+                SHIFTS_6.SHIFTS_COLOUR_ AS day6Colour,
+                SHIFTS_7.SHIFTS_NAME_ AS day7,
+                SHIFTS_7.SHIFTS_COLOUR_ AS day7Colour,
+                SHIFTS_8.SHIFTS_NAME_ AS day8,
+                SHIFTS_8.SHIFTS_COLOUR_ AS day8Colour,
+                SHIFTS_9.SHIFTS_NAME_ AS day9,
+                SHIFTS_9.SHIFTS_COLOUR_ AS day9Colour,
+                SHIFTS_10.SHIFTS_NAME_ AS day10,
+                SHIFTS_10.SHIFTS_COLOUR_ AS day10Colour,
+                SHIFTS_11.SHIFTS_NAME_ AS day11,
+                SHIFTS_11.SHIFTS_COLOUR_ AS day11Colour,
+                SHIFTS_12.SHIFTS_NAME_ AS day12,
+                SHIFTS_12.SHIFTS_COLOUR_ AS day12Colour,
+                SHIFTS_13.SHIFTS_NAME_ AS day13,
+                SHIFTS_13.SHIFTS_COLOUR_ AS day13Colour,
+                SHIFTS_14.SHIFTS_NAME_ AS day14,
+                SHIFTS_14.SHIFTS_COLOUR_ AS day14Colour,
+                SHIFTS_15.SHIFTS_NAME_ AS day15,
+                SHIFTS_15.SHIFTS_COLOUR_ AS day15Colour,
+                SHIFTS_16.SHIFTS_NAME_ AS day16,
+                SHIFTS_16.SHIFTS_COLOUR_ AS day16Colour,
+                SHIFTS_17.SHIFTS_NAME_ AS day17,
+                SHIFTS_17.SHIFTS_COLOUR_ AS day17Colour,
+                SHIFTS_18.SHIFTS_NAME_ AS day18,
+                SHIFTS_18.SHIFTS_COLOUR_ AS day18Colour,
+                SHIFTS_19.SHIFTS_NAME_ AS day19,
+                SHIFTS_19.SHIFTS_COLOUR_ AS day19Colour,
+                SHIFTS_20.SHIFTS_NAME_ AS day20,
+                SHIFTS_20.SHIFTS_COLOUR_ AS day20Colour,
+                SHIFTS_21.SHIFTS_NAME_ AS day21,
+                SHIFTS_21.SHIFTS_COLOUR_ AS day21Colour,
+                SHIFTS_22.SHIFTS_NAME_ AS day22,
+                SHIFTS_22.SHIFTS_COLOUR_ AS day22Colour,
+                SHIFTS_23.SHIFTS_NAME_ AS day23,
+                SHIFTS_23.SHIFTS_COLOUR_ AS day23Colour,
+                SHIFTS_24.SHIFTS_NAME_ AS day24,
+                SHIFTS_24.SHIFTS_COLOUR_ AS day24Colour,
+                SHIFTS_25.SHIFTS_NAME_ AS day25,
+                SHIFTS_25.SHIFTS_COLOUR_ AS day25Colour,
+                SHIFTS_26.SHIFTS_NAME_ AS day26,
+                SHIFTS_26.SHIFTS_COLOUR_ AS day26Colour,
+                SHIFTS_27.SHIFTS_NAME_ AS day27,
+                SHIFTS_27.SHIFTS_COLOUR_ AS day27Colour,
+                SHIFTS_28.SHIFTS_NAME_ AS day28,
+                SHIFTS_28.SHIFTS_COLOUR_ AS day28Colour,
+                SHIFTS_29.SHIFTS_NAME_ AS day29,
+                SHIFTS_29.SHIFTS_COLOUR_ AS day29Colour,
+                SHIFTS_30.SHIFTS_NAME_ AS day30,
+                SHIFTS_30.SHIFTS_COLOUR_ AS day30Colour,
+                SHIFTS_31.SHIFTS_NAME_ AS day31,
+                SHIFTS_31.SHIFTS_COLOUR_ AS day31Colour
+            </otherwise>
+        </choose>
+
+        FROM
+        R_SCHEDULING_DETAIL A
+        LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_1 ON ( A.DAY_1_ = SHIFTS_1.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_2 ON ( A.DAY_2_ = SHIFTS_2.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_3 ON ( A.DAY_3_ = SHIFTS_3.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_4 ON ( A.DAY_4_ = SHIFTS_4.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_5 ON ( A.DAY_5_ = SHIFTS_5.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_6 ON ( A.DAY_6_ = SHIFTS_6.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_7 ON ( A.DAY_7_ = SHIFTS_7.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_8 ON ( A.DAY_8_ = SHIFTS_8.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_9 ON ( A.DAY_9_ = SHIFTS_9.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_10 ON ( A.DAY_10_ = SHIFTS_10.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_11 ON ( A.DAY_11_ = SHIFTS_11.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_12 ON ( A.DAY_12_ = SHIFTS_12.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_13 ON ( A.DAY_13_ = SHIFTS_13.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_14 ON ( A.DAY_14_ = SHIFTS_14.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_15 ON ( A.DAY_15_ = SHIFTS_15.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_16 ON ( A.DAY_16_ = SHIFTS_16.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_17 ON ( A.DAY_17_ = SHIFTS_17.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_18 ON ( A.DAY_18_ = SHIFTS_18.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_19 ON ( A.DAY_19_ = SHIFTS_19.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_20 ON ( A.DAY_20_ = SHIFTS_20.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_21 ON ( A.DAY_21_ = SHIFTS_21.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_22 ON ( A.DAY_22_ = SHIFTS_22.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_23 ON ( A.DAY_23_ = SHIFTS_23.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_24 ON ( A.DAY_24_ = SHIFTS_24.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_25 ON ( A.DAY_25_ = SHIFTS_25.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_26 ON ( A.DAY_26_ = SHIFTS_26.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_27 ON ( A.DAY_27_ = SHIFTS_27.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_28 ON ( A.DAY_28_ = SHIFTS_28.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_29 ON ( A.DAY_29_ = SHIFTS_29.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_30 ON ( A.DAY_30_ = SHIFTS_30.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_31 ON ( A.DAY_31_ = SHIFTS_31.ID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.SCHEDULING_UID_ = #{schedulingUid}
+        AND A.SCHEDULING_DETAIL_DATE_ = #{schedulingDetailDate}
+        ) data
+        WHERE
+        ( data.Rownumver BETWEEN #{startIndex} AND #{endIndex} )
+        ORDER BY
+        data.schedulingDetailDate DESC;
+    </select>
+    
+    
+    <!--获取排班列表(MySql)-->
+    <select id="getSchedulingDetailListMySql" resultType="java.util.HashMap">
+        SELECT
+        *
+        FROM
+        (
+        SELECT
+        <!-- ROW_NUMBER () OVER ( ORDER BY A.SCHEDULING_DETAIL_DATE_ DESC ) AS Rownumver, -->
+        A.ID_ AS id,
+        B.NAME_ AS name,
+        A.SCHEDULING_DETAIL_DATE_ AS schedulingDetailDate,
+        <choose>
+            <when test="shiftUid !=null and shiftUid != ''">
+                CASE
+
+                WHEN A.DAY_1_ = #{shiftUid} THEN
+                SHIFTS_1.SHIFTS_NAME_
+                END AS day1,
+                CASE
+
+                WHEN A.DAY_1_ = #{shiftUid} THEN
+                SHIFTS_1.SHIFTS_COLOUR_
+                END AS day1Colour,
+                CASE
+
+                WHEN A.DAY_2_ = #{shiftUid} THEN
+                SHIFTS_2.SHIFTS_NAME_
+                END AS day2,
+                CASE
+
+                WHEN A.DAY_2_ = #{shiftUid} THEN
+                SHIFTS_2.SHIFTS_COLOUR_
+                END AS day2Colour,
+                CASE
+
+                WHEN A.DAY_3_ = #{shiftUid} THEN
+                SHIFTS_3.SHIFTS_NAME_
+                END AS day3,
+                CASE
+
+                WHEN A.DAY_3_ = #{shiftUid} THEN
+                SHIFTS_3.SHIFTS_COLOUR_
+                END AS day3Colour,
+                CASE
+
+                WHEN A.DAY_4_ = #{shiftUid} THEN
+                SHIFTS_4.SHIFTS_NAME_
+                END AS day4,
+                CASE
+
+                WHEN A.DAY_4_ = #{shiftUid} THEN
+                SHIFTS_4.SHIFTS_COLOUR_
+                END AS day4Colour,
+                CASE
+
+                WHEN A.DAY_5_ = #{shiftUid} THEN
+                SHIFTS_5.SHIFTS_NAME_
+                END AS day5,
+                CASE
+
+                WHEN A.DAY_5_ = #{shiftUid} THEN
+                SHIFTS_5.SHIFTS_COLOUR_
+                END AS day5Colour,
+                CASE
+
+                WHEN A.DAY_6_ = #{shiftUid} THEN
+                SHIFTS_6.SHIFTS_NAME_
+                END AS day6,
+                CASE
+
+                WHEN A.DAY_6_ = #{shiftUid} THEN
+                SHIFTS_6.SHIFTS_COLOUR_
+                END AS day6Colour,
+                CASE
+
+                WHEN A.DAY_7_ = #{shiftUid} THEN
+                SHIFTS_7.SHIFTS_NAME_
+                END AS day7,
+                CASE
+
+                WHEN A.DAY_7_ = #{shiftUid} THEN
+                SHIFTS_7.SHIFTS_COLOUR_
+                END AS day7Colour,
+                CASE
+
+                WHEN A.DAY_8_ = #{shiftUid} THEN
+                SHIFTS_8.SHIFTS_NAME_
+                END AS day8,
+                CASE
+
+                WHEN A.DAY_8_ = #{shiftUid} THEN
+                SHIFTS_8.SHIFTS_COLOUR_
+                END AS day8Colour,
+                CASE
+
+                WHEN A.DAY_9_ = #{shiftUid} THEN
+                SHIFTS_9.SHIFTS_NAME_
+                END AS day9,
+                CASE
+
+                WHEN A.DAY_9_ = #{shiftUid} THEN
+                SHIFTS_9.SHIFTS_COLOUR_
+                END AS day9Colour,
+                CASE
+
+                WHEN A.DAY_10_ = #{shiftUid} THEN
+                SHIFTS_10.SHIFTS_NAME_
+                END AS day10,
+                CASE
+
+                WHEN A.DAY_10_ = #{shiftUid} THEN
+                SHIFTS_10.SHIFTS_COLOUR_
+                END AS day10Colour,
+                CASE
+
+                WHEN A.DAY_11_ = #{shiftUid} THEN
+                SHIFTS_11.SHIFTS_NAME_
+                END AS day11,
+                CASE
+
+                WHEN A.DAY_11_ = #{shiftUid} THEN
+                SHIFTS_11.SHIFTS_COLOUR_
+                END AS day11Colour,
+                CASE
+
+                WHEN A.DAY_12_ = #{shiftUid} THEN
+                SHIFTS_12.SHIFTS_NAME_
+                END AS day12,
+                CASE
+
+                WHEN A.DAY_12_ = #{shiftUid} THEN
+                SHIFTS_12.SHIFTS_COLOUR_
+                END AS day12Colour,
+                CASE
+
+                WHEN A.DAY_13_ = #{shiftUid} THEN
+                SHIFTS_13.SHIFTS_NAME_
+                END AS day13,
+                CASE
+
+                WHEN A.DAY_13_ = #{shiftUid} THEN
+                SHIFTS_13.SHIFTS_COLOUR_
+                END AS day13Colour,
+                CASE
+
+                WHEN A.DAY_14_ = #{shiftUid} THEN
+                SHIFTS_14.SHIFTS_NAME_
+                END AS day14,
+                CASE
+
+                WHEN A.DAY_14_ = #{shiftUid} THEN
+                SHIFTS_14.SHIFTS_COLOUR_
+                END AS day14Colour,
+                CASE
+
+                WHEN A.DAY_15_ = #{shiftUid} THEN
+                SHIFTS_15.SHIFTS_NAME_
+                END AS day15,
+                CASE
+
+                WHEN A.DAY_15_ = #{shiftUid} THEN
+                SHIFTS_15.SHIFTS_COLOUR_
+                END AS day15Colour,
+                CASE
+
+                WHEN A.DAY_16_ = #{shiftUid} THEN
+                SHIFTS_16.SHIFTS_NAME_
+                END AS day16,
+                CASE
+
+                WHEN A.DAY_16_ = #{shiftUid} THEN
+                SHIFTS_16.SHIFTS_COLOUR_
+                END AS day16Colour,
+                CASE
+
+                WHEN A.DAY_17_ = #{shiftUid} THEN
+                SHIFTS_17.SHIFTS_NAME_
+                END AS day17,
+                CASE
+
+                WHEN A.DAY_17_ = #{shiftUid} THEN
+                SHIFTS_17.SHIFTS_COLOUR_
+                END AS day17Colour,
+                CASE
+
+                WHEN A.DAY_18_ = #{shiftUid} THEN
+                SHIFTS_18.SHIFTS_NAME_
+                END AS day18,
+                CASE
+
+                WHEN A.DAY_18_ = #{shiftUid} THEN
+                SHIFTS_18.SHIFTS_COLOUR_
+                END AS day18Colour,
+                CASE
+
+                WHEN A.DAY_19_ = #{shiftUid} THEN
+                SHIFTS_19.SHIFTS_NAME_
+                END AS day19,
+                CASE
+
+                WHEN A.DAY_19_ = #{shiftUid} THEN
+                SHIFTS_19.SHIFTS_COLOUR_
+                END AS day19Colour,
+                CASE
+
+                WHEN A.DAY_20_ = #{shiftUid} THEN
+                SHIFTS_20.SHIFTS_NAME_
+                END AS day20,
+                CASE
+
+                WHEN A.DAY_20_ = #{shiftUid} THEN
+                SHIFTS_20.SHIFTS_COLOUR_
+                END AS day20Colour,
+                CASE
+
+                WHEN A.DAY_21_ = #{shiftUid} THEN
+                SHIFTS_21.SHIFTS_NAME_
+                END AS day21,
+                CASE
+
+                WHEN A.DAY_21_ = #{shiftUid} THEN
+                SHIFTS_21.SHIFTS_COLOUR_
+                END AS day21Colour,
+                CASE
+
+                WHEN A.DAY_22_ = #{shiftUid} THEN
+                SHIFTS_22.SHIFTS_NAME_
+                END AS day22,
+                CASE
+
+                WHEN A.DAY_22_ = #{shiftUid} THEN
+                SHIFTS_22.SHIFTS_COLOUR_
+                END AS day22Colour,
+                CASE
+
+                WHEN A.DAY_23_ = #{shiftUid} THEN
+                SHIFTS_23.SHIFTS_NAME_
+                END AS day23,
+                CASE
+
+                WHEN A.DAY_23_ = #{shiftUid} THEN
+                SHIFTS_23.SHIFTS_COLOUR_
+                END AS day23Colour,
+                CASE
+
+                WHEN A.DAY_24_ = #{shiftUid} THEN
+                SHIFTS_24.SHIFTS_NAME_
+                END AS day24,
+                CASE
+
+                WHEN A.DAY_24_ = #{shiftUid} THEN
+                SHIFTS_24.SHIFTS_COLOUR_
+                END AS day24Colour,
+                CASE
+
+                WHEN A.DAY_25_ = #{shiftUid} THEN
+                SHIFTS_25.SHIFTS_NAME_
+                END AS day25,
+                CASE
+
+                WHEN A.DAY_25_ = #{shiftUid} THEN
+                SHIFTS_25.SHIFTS_COLOUR_
+                END AS day25Colour,
+                CASE
+
+                WHEN A.DAY_26_ = #{shiftUid} THEN
+                SHIFTS_26.SHIFTS_NAME_
+                END AS day26,
+                CASE
+
+                WHEN A.DAY_26_ = #{shiftUid} THEN
+                SHIFTS_26.SHIFTS_COLOUR_
+                END AS day26Colour,
+                CASE
+
+                WHEN A.DAY_27_ = #{shiftUid} THEN
+                SHIFTS_27.SHIFTS_NAME_
+                END AS day27,
+                CASE
+
+                WHEN A.DAY_27_ = #{shiftUid} THEN
+                SHIFTS_27.SHIFTS_COLOUR_
+                END AS day27Colour,
+                CASE
+
+                WHEN A.DAY_28_ = #{shiftUid} THEN
+                SHIFTS_28.SHIFTS_NAME_
+                END AS day28,
+                CASE
+
+                WHEN A.DAY_28_ = #{shiftUid} THEN
+                SHIFTS_28.SHIFTS_COLOUR_
+                END AS day28Colour,
+                CASE
+
+                WHEN A.DAY_29_ = #{shiftUid} THEN
+                SHIFTS_29.SHIFTS_NAME_
+                END AS day29,
+                CASE
+
+                WHEN A.DAY_29_ = #{shiftUid} THEN
+                SHIFTS_29.SHIFTS_COLOUR_
+                END AS day29Colour,
+                CASE
+
+                WHEN A.DAY_30_ = #{shiftUid} THEN
+                SHIFTS_30.SHIFTS_NAME_
+                END AS day30,
+                CASE
+
+                WHEN A.DAY_30_ = #{shiftUid} THEN
+                SHIFTS_30.SHIFTS_COLOUR_
+                END AS day30Colour,
+                CASE
+
+                WHEN A.DAY_31_ = #{shiftUid} THEN
+                SHIFTS_31.SHIFTS_NAME_
+                END AS day31,
+                CASE
+
+                WHEN A.DAY_31_ = #{shiftUid} THEN
+                SHIFTS_31.SHIFTS_COLOUR_
+                END AS day31Colour
+            </when>
+            <otherwise>
+                SHIFTS_1.SHIFTS_NAME_ AS day1,
+                SHIFTS_1.SHIFTS_COLOUR_ AS day1Colour,
+                SHIFTS_2.SHIFTS_NAME_ AS day2,
+                SHIFTS_2.SHIFTS_COLOUR_ AS day2Colour,
+                SHIFTS_3.SHIFTS_NAME_ AS day3,
+                SHIFTS_3.SHIFTS_COLOUR_ AS day3Colour,
+                SHIFTS_4.SHIFTS_NAME_ AS day4,
+                SHIFTS_4.SHIFTS_COLOUR_ AS day4Colour,
+                SHIFTS_5.SHIFTS_NAME_ AS day5,
+                SHIFTS_5.SHIFTS_COLOUR_ AS day5Colour,
+                SHIFTS_6.SHIFTS_NAME_ AS day6,
+                SHIFTS_6.SHIFTS_COLOUR_ AS day6Colour,
+                SHIFTS_7.SHIFTS_NAME_ AS day7,
+                SHIFTS_7.SHIFTS_COLOUR_ AS day7Colour,
+                SHIFTS_8.SHIFTS_NAME_ AS day8,
+                SHIFTS_8.SHIFTS_COLOUR_ AS day8Colour,
+                SHIFTS_9.SHIFTS_NAME_ AS day9,
+                SHIFTS_9.SHIFTS_COLOUR_ AS day9Colour,
+                SHIFTS_10.SHIFTS_NAME_ AS day10,
+                SHIFTS_10.SHIFTS_COLOUR_ AS day10Colour,
+                SHIFTS_11.SHIFTS_NAME_ AS day11,
+                SHIFTS_11.SHIFTS_COLOUR_ AS day11Colour,
+                SHIFTS_12.SHIFTS_NAME_ AS day12,
+                SHIFTS_12.SHIFTS_COLOUR_ AS day12Colour,
+                SHIFTS_13.SHIFTS_NAME_ AS day13,
+                SHIFTS_13.SHIFTS_COLOUR_ AS day13Colour,
+                SHIFTS_14.SHIFTS_NAME_ AS day14,
+                SHIFTS_14.SHIFTS_COLOUR_ AS day14Colour,
+                SHIFTS_15.SHIFTS_NAME_ AS day15,
+                SHIFTS_15.SHIFTS_COLOUR_ AS day15Colour,
+                SHIFTS_16.SHIFTS_NAME_ AS day16,
+                SHIFTS_16.SHIFTS_COLOUR_ AS day16Colour,
+                SHIFTS_17.SHIFTS_NAME_ AS day17,
+                SHIFTS_17.SHIFTS_COLOUR_ AS day17Colour,
+                SHIFTS_18.SHIFTS_NAME_ AS day18,
+                SHIFTS_18.SHIFTS_COLOUR_ AS day18Colour,
+                SHIFTS_19.SHIFTS_NAME_ AS day19,
+                SHIFTS_19.SHIFTS_COLOUR_ AS day19Colour,
+                SHIFTS_20.SHIFTS_NAME_ AS day20,
+                SHIFTS_20.SHIFTS_COLOUR_ AS day20Colour,
+                SHIFTS_21.SHIFTS_NAME_ AS day21,
+                SHIFTS_21.SHIFTS_COLOUR_ AS day21Colour,
+                SHIFTS_22.SHIFTS_NAME_ AS day22,
+                SHIFTS_22.SHIFTS_COLOUR_ AS day22Colour,
+                SHIFTS_23.SHIFTS_NAME_ AS day23,
+                SHIFTS_23.SHIFTS_COLOUR_ AS day23Colour,
+                SHIFTS_24.SHIFTS_NAME_ AS day24,
+                SHIFTS_24.SHIFTS_COLOUR_ AS day24Colour,
+                SHIFTS_25.SHIFTS_NAME_ AS day25,
+                SHIFTS_25.SHIFTS_COLOUR_ AS day25Colour,
+                SHIFTS_26.SHIFTS_NAME_ AS day26,
+                SHIFTS_26.SHIFTS_COLOUR_ AS day26Colour,
+                SHIFTS_27.SHIFTS_NAME_ AS day27,
+                SHIFTS_27.SHIFTS_COLOUR_ AS day27Colour,
+                SHIFTS_28.SHIFTS_NAME_ AS day28,
+                SHIFTS_28.SHIFTS_COLOUR_ AS day28Colour,
+                SHIFTS_29.SHIFTS_NAME_ AS day29,
+                SHIFTS_29.SHIFTS_COLOUR_ AS day29Colour,
+                SHIFTS_30.SHIFTS_NAME_ AS day30,
+                SHIFTS_30.SHIFTS_COLOUR_ AS day30Colour,
+                SHIFTS_31.SHIFTS_NAME_ AS day31,
+                SHIFTS_31.SHIFTS_COLOUR_ AS day31Colour
+            </otherwise>
+        </choose>
+
+        FROM
+        R_SCHEDULING_DETAIL A
+        LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_1 ON ( A.DAY_1_ = SHIFTS_1.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_2 ON ( A.DAY_2_ = SHIFTS_2.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_3 ON ( A.DAY_3_ = SHIFTS_3.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_4 ON ( A.DAY_4_ = SHIFTS_4.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_5 ON ( A.DAY_5_ = SHIFTS_5.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_6 ON ( A.DAY_6_ = SHIFTS_6.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_7 ON ( A.DAY_7_ = SHIFTS_7.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_8 ON ( A.DAY_8_ = SHIFTS_8.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_9 ON ( A.DAY_9_ = SHIFTS_9.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_10 ON ( A.DAY_10_ = SHIFTS_10.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_11 ON ( A.DAY_11_ = SHIFTS_11.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_12 ON ( A.DAY_12_ = SHIFTS_12.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_13 ON ( A.DAY_13_ = SHIFTS_13.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_14 ON ( A.DAY_14_ = SHIFTS_14.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_15 ON ( A.DAY_15_ = SHIFTS_15.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_16 ON ( A.DAY_16_ = SHIFTS_16.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_17 ON ( A.DAY_17_ = SHIFTS_17.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_18 ON ( A.DAY_18_ = SHIFTS_18.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_19 ON ( A.DAY_19_ = SHIFTS_19.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_20 ON ( A.DAY_20_ = SHIFTS_20.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_21 ON ( A.DAY_21_ = SHIFTS_21.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_22 ON ( A.DAY_22_ = SHIFTS_22.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_23 ON ( A.DAY_23_ = SHIFTS_23.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_24 ON ( A.DAY_24_ = SHIFTS_24.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_25 ON ( A.DAY_25_ = SHIFTS_25.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_26 ON ( A.DAY_26_ = SHIFTS_26.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_27 ON ( A.DAY_27_ = SHIFTS_27.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_28 ON ( A.DAY_28_ = SHIFTS_28.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_29 ON ( A.DAY_29_ = SHIFTS_29.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_30 ON ( A.DAY_30_ = SHIFTS_30.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_31 ON ( A.DAY_31_ = SHIFTS_31.ID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.SCHEDULING_UID_ = #{schedulingUid}
+        AND A.SCHEDULING_DETAIL_DATE_ = #{schedulingDetailDate}
+        ) data
+        ORDER BY
+        data.schedulingDetailDate DESC LIMIT #{startIndex}, #{endIndex}
+    </select>
+
+    <select id="getSchedulingDetailTotalCount" resultType="int">
+        SELECT
+          COUNT(A.ID_)
+        FROM
+        R_SCHEDULING_DETAIL A
+        LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_1 ON ( A.DAY_1_ = SHIFTS_1.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_2 ON ( A.DAY_2_ = SHIFTS_2.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_3 ON ( A.DAY_3_ = SHIFTS_3.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_4 ON ( A.DAY_4_ = SHIFTS_4.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_5 ON ( A.DAY_5_ = SHIFTS_5.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_6 ON ( A.DAY_6_ = SHIFTS_6.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_7 ON ( A.DAY_7_ = SHIFTS_7.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_8 ON ( A.DAY_8_ = SHIFTS_8.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_9 ON ( A.DAY_9_ = SHIFTS_9.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_10 ON ( A.DAY_10_ = SHIFTS_10.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_11 ON ( A.DAY_11_ = SHIFTS_11.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_12 ON ( A.DAY_12_ = SHIFTS_12.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_13 ON ( A.DAY_13_ = SHIFTS_13.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_14 ON ( A.DAY_14_ = SHIFTS_14.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_15 ON ( A.DAY_15_ = SHIFTS_15.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_16 ON ( A.DAY_16_ = SHIFTS_16.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_17 ON ( A.DAY_17_ = SHIFTS_17.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_18 ON ( A.DAY_18_ = SHIFTS_18.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_19 ON ( A.DAY_19_ = SHIFTS_19.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_20 ON ( A.DAY_20_ = SHIFTS_20.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_21 ON ( A.DAY_21_ = SHIFTS_21.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_22 ON ( A.DAY_22_ = SHIFTS_22.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_23 ON ( A.DAY_23_ = SHIFTS_23.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_24 ON ( A.DAY_24_ = SHIFTS_24.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_25 ON ( A.DAY_25_ = SHIFTS_25.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_26 ON ( A.DAY_26_ = SHIFTS_26.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_27 ON ( A.DAY_27_ = SHIFTS_27.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_28 ON ( A.DAY_28_ = SHIFTS_28.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_29 ON ( A.DAY_29_ = SHIFTS_29.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_30 ON ( A.DAY_30_ = SHIFTS_30.ID_ )
+        LEFT JOIN R_SHIFTS_SETUP SHIFTS_31 ON ( A.DAY_31_ = SHIFTS_31.ID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.SCHEDULING_UID_ = #{schedulingUid}
+        AND A.SCHEDULING_DETAIL_DATE_ = #{schedulingDetailDate}
+    </select>
+
+    <select id="getSchedulingDetailWorker" resultType="java.util.HashMap">
+        SELECT
+        A.WORKER_UID_,
+        B.NAME_
+        FROM
+        R_SCHEDULING_DETAIL A
+        LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.SCHEDULING_UID_ = #{schedulingUid}
+        AND A.SCHEDULING_DETAIL_DATE_ = #{setupDate}
+        AND A.WORKER_UID_ IN
+        <foreach collection="schedulingWorkerList" item="item" open="(" close=")" separator=",">
+            #{ item.workerUid,jdbcType = VARCHAR}
+        </foreach>
+    </select>
+
+    <select id="getSchedulingDetailOtherScheduling" resultType="java.util.HashMap">
+        SELECT
+        A.SCHEDULING_UID_,
+        B.SCHEDULING_NAME_,
+        A.WORKER_UID_,
+        C.NAME_
+        FROM
+        R_SCHEDULING_DETAIL A
+        LEFT JOIN R_SCHEDULING B ON ( A.SCHEDULING_UID_ = B.ID_ )
+        LEFT JOIN R_WORKER_INFO C ON (
+        A.WORKER_UID_ = C.ID_)
+        WHERE A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.SCHEDULING_UID_ != #{schedulingUid}
+        AND A.SCHEDULING_DETAIL_DATE_ = #{setupDate}
+        AND A.WORKER_UID_ IN
+        <foreach collection="schedulingWorkerList" item="item" open="(" close=")" separator=",">
+            #{ item.workerUid,jdbcType = VARCHAR}
+        </foreach>
+    </select>
+
+    <select id="getSchedulingDetailBySchedulingUid" resultType="int">
+        SELECT
+          COUNT(ID_)
+        FROM
+        R_SCHEDULING_DETAIL
+        WHERE SCHEDULING_UID_ = #{schedulingUid}
+    </select>
+
+    <delete id="delBatchSchedulingDetail">
+        DELETE FROM R_SCHEDULING_DETAIL WHERE ID_ IN
+        <foreach collection="idList" index="index" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="getSchedulingBySchedulingName" resultType="java.util.HashMap">
+        SELECT
+          *
+        FROM
+        R_SCHEDULING
+        WHERE COMPANY_ = #{companyUid}
+        AND PROJ_UID_ = #{projUid}
+        AND SCHEDULING_NAME_ = #{schedulingName}
+    </select>
+</mapper>

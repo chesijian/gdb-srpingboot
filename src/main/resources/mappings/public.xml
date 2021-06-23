@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 公用SQL语句 -->
+<mapper namespace="public">
+    <sql id="model"></sql>
+    <sql id="prefix"></sql>
+    <sql id="commQuery">
+        <choose>
+            <when test="isCompanyAdmin">
+                and 1 = 1
+            </when>
+            <otherwise>
+                and (a.CREATE_USER_= #{userUid} or PRINCIPAL_ID_=#{userUid} or #{userUid} in (select USER_UID_ from WX_PRO_MEMBER where PRO_UID_ =a.ID_) )
+            </otherwise>
+        </choose>
+    </sql>
+</mapper>

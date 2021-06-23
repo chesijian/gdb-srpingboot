@@ -1,0 +1,1767 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.WorkerAttendanceDao">
+
+    <resultMap id="workerAttendanceResultMap" type="java.util.HashMap">
+        <id property="id" column="ID_" jdbcType="VARCHAR"/>
+        <result property="teamName" column="TEAM_NAME_" jdbcType="VARCHAR"/>
+        <result property="workerUid" column="WORKER_UID_" jdbcType="VARCHAR"/>
+        <result property="workerName" column="WORKER_NAME_" jdbcType="VARCHAR"/>
+        <result property="idcardType" column="IDCARD_TYPE_" jdbcType="VARCHAR"/>
+        <result property="idcardNumber" column="IDCARD_NUMBER_" jdbcType="VARCHAR"/>
+        <result property="date" column="DATE_" jdbcType="TIMESTAMP"/>
+        <result property="direction" column="DIRECTION_" jdbcType="VARCHAR"/>
+        <result property="deviceName" column="DEVICE_NAME_" jdbcType="VARCHAR"/>
+        <result property="attendType" column="ATTEND_TYPE_" jdbcType="VARCHAR"/>
+        <result property="snapshot" column="SNAPSHOT_" jdbcType="VARCHAR"/>
+        <result property="lng" column="LNG_" jdbcType="DECIMAL"/>
+        <result property="lat" column="LAT_" jdbcType="DECIMAL"/>
+    </resultMap>
+
+    <!--获取班组人员新增记录信息（项目主键）-->
+    <select id="getAddWorkerRecordByProjUid" resultType="java.util.HashMap">
+        SELECT
+        DATA_1.WORKER_UID_ AS userid,
+        DATA_1.NAME_ AS workName,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeCode,
+        DATA_1.PROJ_UID_ AS projUid,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeName
+        FROM
+        (
+        SELECT
+        A.WORKER_UID_,
+        B.NAME_,
+        B.WORK_TYPE_CODE_,
+        A.PROJ_UID_
+        FROM
+        ( SELECT WORKER_UID_, PROJ_UID_ FROM R_WORKER_RECORD WHERE
+        OPERATION_TYPE_ = 1
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND CONVERT(VARCHAR(50), OPERATION_TIME_, 20) >= #{date}
+        </if>
+        GROUP BY WORKER_UID_, PROJ_UID_ ) A
+        LEFT JOIN R_WORKER_INFO B ON (
+        A.WORKER_UID_= B.ID_)) DATA_1
+    </select>
+
+    <!--获取班组人员修改记录信息（项目主键）-->
+    <select id="getUpdWorkerRecordByProjUid" resultType="java.util.HashMap">
+        SELECT
+        DATA_1.WORKER_UID_ AS userid,
+        DATA_1.NAME_ AS workName,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeCode,
+        DATA_1.PROJ_UID_ AS projUid,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeName
+        FROM
+        (
+        SELECT
+        A.WORKER_UID_,
+        B.NAME_,
+        B.WORK_TYPE_CODE_,
+        A.PROJ_UID_
+        FROM
+        ( SELECT WORKER_UID_, PROJ_UID_ FROM R_WORKER_RECORD WHERE
+        OPERATION_TYPE_ = 2
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND CONVERT(VARCHAR(50), OPERATION_TIME_, 20) >= #{date}
+        </if>
+        GROUP BY WORKER_UID_, PROJ_UID_ ) A
+        LEFT JOIN R_WORKER_INFO B ON (
+        A.WORKER_UID_= B.ID_)) DATA_1
+    </select>
+
+    <!--获取班组人员删除记录信息（项目主键）-->
+    <select id="getDelWorkerRecordByProjUid" resultType="java.util.HashMap">
+        SELECT
+        DATA_1.WORKER_UID_ AS userid,
+        DATA_1.NAME_ AS workName,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeCode,
+        DATA_1.PROJ_UID_ AS projUid,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeName
+        FROM
+        (
+        SELECT
+        A.WORKER_UID_,
+        B.NAME_,
+        B.WORK_TYPE_CODE_,
+        A.PROJ_UID_
+        FROM
+        ( SELECT WORKER_UID_, PROJ_UID_ FROM R_WORKER_RECORD WHERE
+        OPERATION_TYPE_ = 0
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND CONVERT(VARCHAR(50), OPERATION_TIME_, 20) >= #{date}
+        </if>
+        GROUP BY WORKER_UID_, PROJ_UID_ ) A
+        LEFT JOIN R_WORKER_INFO B ON (
+        A.WORKER_UID_= B.ID_)) DATA_1
+    </select>
+
+    <!--获取考勤记录信息（项目主键，班组主键，日期）-->
+    <select id="getWorkerAttendanceWorkerUidList" resultMap="workerAttendanceResultMap">
+        SELECT
+        DATA_.WORKER_UID_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( partition BY A.WORKER_UID_ ORDER BY B.CREATE_TIME_ DESC ) AS rownum,
+        A.WORKER_UID_
+        FROM
+        R_WORKER_ATTENDANCE A
+        LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        <if test="projUid != null and projUid != ''">
+            AND A.PROJ_UID_ = #{projUid}
+        </if>
+        <if test="teamUid != null and teamUid != ''">
+            AND A.TEAM_UID_ = #{teamUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND format(A.DATE_,'yyyy-MM') = #{date}
+        </if>
+        ) DATA_
+        WHERE
+        DATA_.rownum = 1
+    </select>
+    
+    <!--获取考勤记录信息（项目主键，班组主键，日期）(MySql)-->
+    <select id="getWorkerAttendanceWorkerUidListMySql" resultMap="workerAttendanceResultMap">
+        SELECT
+        A.WORKER_UID_
+        FROM
+        R_WORKER_ATTENDANCE A
+        LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        <if test="projUid != null and projUid != ''">
+            AND A.PROJ_UID_ = #{projUid}
+        </if>
+        <if test="teamUid != null and teamUid != ''">
+            AND A.TEAM_UID_ = #{teamUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND format(A.DATE_,'yyyy-MM') = #{date}
+        </if>
+        )
+    </select>
+
+    <!--获取考勤记录信息（项目主键，班组主键，日期）-->
+    <select id="getWorkerAttendanceList" resultMap="workerAttendanceResultMap">
+        SELECT * FROM (
+        SELECT A.*,ROW_NUMBER () OVER (ORDER BY A.WORKER_NAME_,A.DATE_ ASC ) AS rownum FROM (
+        SELECT
+        ID_,
+        TEAM_NAME_,
+        WORKER_UID_,
+        WORKER_NAME_,
+        IDCARD_TYPE_,
+        IDCARD_NUMBER_,
+        format ( DATE_, 'yyyy-MM-dd HH:mm:ss' ) AS DATE_,
+        DIRECTION_,
+        DEVICE_NAME_,
+        CASE
+        WHEN ATTEND_TYPE_ = '001' THEN
+        '人脸识别'
+        ELSE
+        ATTEND_TYPE_
+        END AS ATTEND_TYPE_,
+        SNAPSHOT_,
+        LNG_,
+        LAT_
+        FROM
+        (
+        SELECT
+        *,
+        ROW_NUMBER () OVER ( partition BY WORKER_UID_, CONVERT ( VARCHAR ( 100 ), DATE_, 23 ) ORDER BY DATE_ ASC ) AS
+        rownum
+        FROM
+        R_WORKER_ATTENDANCE
+        WHERE
+        COMPANY_ = #{companyUid}
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="teamUid != null and teamUid != ''">
+            AND TEAM_UID_ = #{teamUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND format(DATE_,'yyyy-MM') = #{date}
+        </if>
+        AND DIRECTION_ = '1'
+        ) t
+        WHERE
+        rownum = 1 UNION
+        SELECT
+        ID_,
+        TEAM_NAME_,
+        WORKER_UID_,
+        WORKER_NAME_,
+        IDCARD_TYPE_,
+        IDCARD_NUMBER_,
+        format ( DATE_, 'yyyy-MM-dd HH:mm:ss' ) AS DATE_,
+        DIRECTION_,
+        DEVICE_NAME_,
+        CASE
+        WHEN ATTEND_TYPE_ = '001' THEN
+        '人脸识别'
+        ELSE
+        ATTEND_TYPE_,
+        SNAPSHOT_,
+        LNG_,
+        LAT_
+        FROM
+        (
+        SELECT
+        *,
+        ROW_NUMBER () OVER ( partition BY WORKER_UID_, CONVERT ( VARCHAR ( 100 ), DATE_, 23 ) ORDER BY DATE_ DESC ) AS
+        rownum
+        FROM
+        R_WORKER_ATTENDANCE
+        WHERE
+        COMPANY_ = #{companyUid}
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="teamUid != null and teamUid != ''">
+            AND TEAM_UID_ = #{teamUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND format(DATE_,'yyyy-MM') = #{date}
+        </if>
+        AND DIRECTION_ = '0'
+        ) t
+        WHERE
+        rownum = 1) A
+        ) B
+        WHERE
+        (B.rownum BETWEEN #{startIndex} AND #{endIndex}) ORDER BY B.WORKER_NAME_,B.DATE_ ASC
+    </select>
+
+    <!--获取考勤总条数-->
+    <select id="getWorkerAttendanceTotalCount" resultType="int">
+        SELECT COUNT(A.WORKER_NAME_) FROM (
+        SELECT
+        ID_,
+        TEAM_NAME_,
+        WORKER_UID_,
+        WORKER_NAME_,
+        IDCARD_TYPE_,
+        IDCARD_NUMBER_,
+        format ( DATE_, 'yyyy-MM-dd HH:mm:ss' ) AS DATE_,
+        DIRECTION_,
+        DEVICE_NAME_,
+        ATTEND_TYPE_,
+        SNAPSHOT_,
+        LNG_,
+        LAT_
+        FROM
+        (
+        SELECT
+        *,
+        ROW_NUMBER () OVER ( partition BY WORKER_UID_, CONVERT ( VARCHAR ( 100 ), DATE_, 23 ) ORDER BY DATE_ ASC ) AS
+        rownum
+        FROM
+        R_WORKER_ATTENDANCE
+        WHERE
+        COMPANY_ = #{companyUid}
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="teamUid != null and teamUid != ''">
+            AND TEAM_UID_ = #{teamUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND format(DATE_,'yyyy-MM') = #{date}
+        </if>
+        AND DIRECTION_ = '1'
+        ) t
+        WHERE
+        rownum = 1 UNION
+        SELECT
+        ID_,
+        TEAM_NAME_,
+        WORKER_UID_,
+        WORKER_NAME_,
+        IDCARD_TYPE_,
+        IDCARD_NUMBER_,
+        format ( DATE_, 'yyyy-MM-dd HH:mm:ss' ) AS DATE_,
+        DIRECTION_,
+        DEVICE_NAME_,
+        ATTEND_TYPE_,
+        SNAPSHOT_,
+        LNG_,
+        LAT_
+        FROM
+        (
+        SELECT
+        *,
+        ROW_NUMBER () OVER ( partition BY WORKER_UID_, CONVERT ( VARCHAR ( 100 ), DATE_, 23 ) ORDER BY DATE_ ASC ) AS
+        rownum
+        FROM
+        R_WORKER_ATTENDANCE
+        WHERE
+        COMPANY_ = #{companyUid}
+        <if test="projUid != null and projUid != ''">
+            AND PROJ_UID_ = #{projUid}
+        </if>
+        <if test="teamUid != null and teamUid != ''">
+            AND TEAM_UID_ = #{teamUid}
+        </if>
+        <if test="date != null and date != ''">
+            AND format(DATE_,'yyyy-MM') = #{date}
+        </if>
+        AND DIRECTION_ = '0'
+        ) t
+        WHERE
+        rownum = 1) A
+    </select>
+
+    <!--获取人员信息（人员主键）-->
+    <select id="getProjWorkerInfoById" resultType="java.util.HashMap">
+        SELECT
+        R_P_W.TEAM_UID_,
+        R_P_W.TEAM_SYS_NO_,
+        R_P_W.TEAM_NAME_,
+        R_W_I.ID_,
+        R_W_I.NAME_,
+        R_W_I.WORK_TYPE_CODE_,
+        R_W_I.IDCARD_TYPE_,
+        R_W_I.IDCARD_NUMBER_
+        FROM
+        R_PROJECT_WORKER R_P_W
+        LEFT JOIN R_WORKER_INFO R_W_I ON ( R_P_W.WORKER_UID_ = R_W_I.ID_ AND R_P_W.COMPANY_ = R_W_I.COMPANY_ )
+        WHERE
+        R_P_W.PROJ_UID_ = #{projUid}
+        <if test="workUid != null and workUid != ''">
+            AND R_W_I.ID_ = #{workUid}
+        </if>
+    </select>
+
+    <!--获取考勤报表信息-->
+    <select id="getWorkerAttendanceReportList" resultType="java.util.HashMap">
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+                ROW_NUMBER () OVER ( ORDER BY E.CREATE_TIME_ DESC ) AS ROW_NUM_,
+                B.WORKER_UID_ AS workerUid,
+                E.NAME_ AS worerName,
+                E.IDCARD_NUMBER_ AS idcardNumber,
+                E.WORK_TYPE_CODE_ AS workTypeCode,
+                E.CREATE_TIME_
+            FROM
+                (
+                SELECT
+                    A.WORKER_UID_
+                FROM
+                    R_WORKER_ATTENDANCE A
+                WHERE
+                    A.COMPANY_ = #{companyUid}
+                    AND A.PROJ_UID_ = #{projUid}
+                    AND A.TEAM_UID_ = #{teamUid}
+                    AND CONVERT ( CHAR ( 7 ), A.DATE_, 120 ) = #{date}
+                GROUP BY
+                    A.WORKER_UID_
+                ) AS B
+                LEFT JOIN R_WORKER_INFO E ON ( B.WORKER_UID_ = E.ID_ )
+            ) DATA_
+        WHERE
+            (DATA_.ROW_NUM_ BETWEEN #{startIndex} AND #{endIndex})
+        ORDER BY
+            DATA_.CREATE_TIME_ DESC
+    </select>
+
+    <!--获取考勤报表导出信息-->
+    <select id="getExportWorkerAttendanceReportList" resultType="java.util.HashMap">
+            SELECT
+                B.WORKER_UID_ AS workerUid,
+                E.NAME_ AS worerName,
+                E.IDCARD_NUMBER_ AS idcardNumber,
+                E.WORK_TYPE_CODE_ AS workTypeCode,
+                E.CREATE_TIME_
+            FROM
+                (
+                SELECT
+                    A.WORKER_UID_
+                FROM
+                    R_WORKER_ATTENDANCE A
+                WHERE
+                    A.COMPANY_ = #{companyUid}
+                    AND A.PROJ_UID_ = #{projUid}
+                    AND A.TEAM_UID_ = #{teamUid}
+                    AND CONVERT ( CHAR ( 7 ), A.DATE_, 120 ) = #{date}
+                GROUP BY
+                    A.WORKER_UID_
+                ) AS B
+                LEFT JOIN R_WORKER_INFO E ON ( B.WORKER_UID_ = E.ID_ )
+                 ORDER BY E.CREATE_TIME_ DESC
+    </select>
+
+    <!--获取考勤报表信息（总数）-->
+    <select id="getWorkerAttendanceReportTotalCountOld" resultType="int">
+        SELECT
+            COUNT ( D.WORKER_UID_ )
+        FROM
+        (
+        SELECT
+                B.WORKER_UID_,
+                E.NAME_,
+                E.IDCARD_NUMBER_,
+                E.WORK_TYPE_CODE_,
+                E.CREATE_TIME_
+            FROM
+                (
+                SELECT
+                    A.WORKER_UID_
+                FROM
+                    R_WORKER_ATTENDANCE A
+                WHERE
+                    A.COMPANY_ = #{companyUid}
+                    AND A.PROJ_UID_ = #{projUid}
+                    AND A.TEAM_UID_ = #{teamUid}
+                    AND CONVERT ( CHAR ( 7 ), A.DATE_, 120 ) = #{date}
+                GROUP BY
+                    A.WORKER_UID_
+                ) AS B
+                LEFT JOIN R_WORKER_INFO E ON ( B.WORKER_UID_ = E.ID_ )
+        ) D
+    </select>
+
+    <!--获取人员排班明细的班次信息-->
+    <select id="getSchedulingDetailByWorkerUid" resultType="java.util.HashMap">
+        SELECT
+            *
+        FROM
+            R_SCHEDULING_DETAIL
+        WHERE
+            COMPANY_ = #{companyUid}
+            AND PROJ_UID_ = #{projUid}
+            AND WORKER_UID_ = #{workerUid}
+            AND SCHEDULING_DETAIL_DATE_ = #{schedulingDetailDate}
+    </select>
+
+    <!--获取单人单天第一次考勤-->
+    <select id="getFristWorkerAttendanceByParams" resultType="java.util.HashMap">
+        SELECT
+        B.WORKER_UID_,
+        B.WORKER_NAME_,
+        B.DATE_,
+        SUBSTRING ( B.DATE_, 1, 4 ) AS YEAR,
+        SUBSTRING ( B.DATE_, 6, 2 ) AS MONTH,
+        Datename( weekday, B.DATE_ ) AS WORK_TYPE_,
+        MIN ( PUNCH_TIME_ ) AS UP_PUNCH_TIME_,
+        MAX ( PUNCH_TIME_ ) AS DOWN_PUNCH_TIME_,
+        CASE
+        WHEN MIN ( PUNCH_TIME_ ) = MAX ( PUNCH_TIME_ ) THEN
+        '上班或下班忘打卡'
+        WHEN MIN ( PUNCH_TIME_ ) &gt; #{punchTimeUp}+':59' THEN
+        '迟到'
+        WHEN MAX ( PUNCH_TIME_ ) &lt; #{punchTimeDown}+':00' THEN
+        '早退' ELSE '正常'
+        END AS STATE_
+        FROM
+        (
+        SELECT
+        in_data_.WORKER_UID_,
+        in_data_.WORKER_NAME_,
+        in_data_.DIRECTION_,
+        in_data_.DATE__,
+        in_data_.DATE_,
+        in_data_.PUNCH_TIME_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ ASC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ &lt; #{firstAttendanceTimeDown}+':00'
+        AND A.DIRECTION_ = '1'
+        ) in_data_
+        WHERE
+        Rownumver = 1 UNION
+        SELECT
+        out_data_.WORKER_UID_,
+        out_data_.WORKER_NAME_,
+        out_data_.DIRECTION_,
+        out_data_.DATE__,
+        out_data_.DATE_,
+        out_data_.PUNCH_TIME_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ DESC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ >= #{firstAttendanceTimeDown}+':00'
+        <if test="secondAttendanceTimeUp != null and secondAttendanceTimeUp != ''">
+            AND A.DATE_ &lt; #{secondAttendanceTimeUp}+':00'
+        </if>
+        AND A.DIRECTION_ = '0'
+        ) out_data_
+        WHERE
+        Rownumver = 1
+        ) AS B
+        GROUP BY
+        B.WORKER_UID_,
+        B.WORKER_NAME_,
+        B.DATE_
+    </select>
+
+    <!--获取单人单天第二次考勤-->
+    <select id="getSecondWorkerAttendanceByParams" resultType="java.util.HashMap">
+        SELECT
+        B.WORKER_UID_,
+        B.WORKER_NAME_,
+        B.DATE_,
+        SUBSTRING ( B.DATE_, 1, 4 ) AS YEAR,
+        SUBSTRING ( B.DATE_, 6, 2 ) AS MONTH,
+        Datename( weekday, B.DATE_ ) AS WORK_TYPE_,
+        MIN ( PUNCH_TIME_ ) AS UP_PUNCH_TIME_,
+        MAX ( PUNCH_TIME_ ) AS DOWN_PUNCH_TIME_,
+        CASE
+        WHEN MIN ( PUNCH_TIME_ ) = MAX ( PUNCH_TIME_ ) THEN
+        '上班或下班忘打卡'
+        WHEN MIN ( PUNCH_TIME_ ) &gt; #{punchTimeUp}+':59' THEN
+        '迟到'
+        WHEN MAX ( PUNCH_TIME_ ) &lt; #{punchTimeDown}+':00' THEN
+        '早退'
+        ELSE '正常'
+        END AS STATE_
+        FROM
+        (
+        SELECT
+        in_data_.WORKER_UID_,
+        in_data_.WORKER_NAME_,
+        in_data_.DIRECTION_,
+        in_data_.DATE__,
+        in_data_.DATE_,
+        in_data_.PUNCH_TIME_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ ASC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ &gt; #{firstAttendanceTimeDown}+':00'
+        AND A.DATE_ &lt; #{secondAttendanceTimeDown}+':00'
+        AND A.DIRECTION_ = '1' ) in_data_
+        WHERE
+        Rownumver = 1 UNION
+        SELECT
+        out_data_.WORKER_UID_,
+        out_data_.WORKER_NAME_,
+        out_data_.DIRECTION_,
+        out_data_.DATE__,
+        out_data_.DATE_,
+        out_data_.PUNCH_TIME_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ DESC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ > #{secondAttendanceTimeUp}+':00'
+        <if test="thirdAttendanceTimeUp != null and thirdAttendanceTimeUp != ''">
+            AND A.DATE_ &lt; #{thirdAttendanceTimeUp}+':00'
+        </if>
+        AND A.DIRECTION_ = '0'
+        ) out_data_
+        WHERE
+        Rownumver = 1
+        ) AS B
+        GROUP BY
+        B.WORKER_UID_,
+        B.WORKER_NAME_,
+        B.DATE_
+    </select>
+
+    <!--获取单人单天第三次考勤-->
+    <select id="getThirdWorkerAttendanceByParams" resultType="java.util.HashMap">
+        SELECT
+        B.WORKER_UID_,
+        B.WORKER_NAME_,
+        B.DATE_,
+        SUBSTRING ( B.DATE_, 1, 4 ) AS YEAR,
+        SUBSTRING ( B.DATE_, 6, 2 ) AS MONTH,
+        Datename( weekday, B.DATE_ ) AS WORK_TYPE_,
+        MIN ( PUNCH_TIME_ ) AS UP_PUNCH_TIME_,
+        MAX ( PUNCH_TIME_ ) AS DOWN_PUNCH_TIME_,
+        MIN ( PUNCH_TIME_UP_DOWN_ ) AS PUNCH_TIME_UP_,
+		MAX ( PUNCH_TIME_UP_DOWN_ ) AS PUNCH_TIME_DOWN_,
+        CASE
+        WHEN MIN ( PUNCH_TIME_ ) = MAX ( PUNCH_TIME_ ) THEN
+        '上班或下班忘打卡'
+        WHEN MIN ( PUNCH_TIME_ ) &gt; #{punchTimeUp}+':59' THEN
+        '迟到'
+        WHEN MAX ( PUNCH_TIME_ ) &lt; #{punchTimeDown}+':00' THEN
+        '早退'
+        ELSE '正常'
+        END AS STATE_
+        FROM
+        (
+        SELECT
+		in_data_.WORKER_UID_,
+		in_data_.WORKER_NAME_,
+		in_data_.DIRECTION_,
+		in_data_.DATE__,
+		in_data_.DATE_,
+		in_data_.PUNCH_TIME_,
+		in_data_.PUNCH_TIME_UP_DOWN_
+	FROM
+		(
+		SELECT
+		ROW_NUMBER () OVER ( ORDER BY A.DATE_ ASC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_,
+        CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_UP_DOWN_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ &gt; #{secondAttendanceTimeDown}+':00'
+        AND A.DATE_ &lt; #{thirdAttendanceTimeDown}+':00'
+        AND A.DIRECTION_ = '1'
+        ) in_data_
+	WHERE
+		Rownumver = 1 UNION
+        SELECT
+		out_data_.WORKER_UID_,
+		out_data_.WORKER_NAME_,
+		out_data_.DIRECTION_,
+		out_data_.DATE__,
+		out_data_.DATE_,
+		out_data_.PUNCH_TIME_,
+		out_data_.PUNCH_TIME_UP_DOWN_
+	FROM
+		(
+		SELECT
+		ROW_NUMBER () OVER ( ORDER BY A.DATE_ DESC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_,
+        CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_UP_DOWN_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ > #{thirdAttendanceTimeUp}+':00'
+        AND A.DIRECTION_ = '0'
+        ) out_data_
+	WHERE
+		Rownumver = 1
+        ) AS B
+        GROUP BY
+        B.WORKER_UID_,
+        B.WORKER_NAME_,
+        B.DATE_
+    </select>
+
+    <!--获取单人单天第一次考勤（明细===考勤时间段上下班考勤）-->
+    <select id="getFristWorkerAttendanceDetailByParams" resultType="java.util.HashMap">
+        SELECT
+        TEAN_DATA_.TEAM_NAME_ AS teamName,
+        WORKER_DATA_.NAME_ AS workerName,
+        WORKER_DATA_.IDCARD_NUMBER_ AS idcardNumber,
+        format ( DATA_.DATE__, 'yyyy-MM-dd HH:mm:ss' ) AS date,
+        DATA_.DIRECTION_ AS direction,
+        DEVICE_DATA_.TITLE_ AS deviceName,
+        CASE
+        WHEN ATTEND_TYPE_ = '001' THEN
+        '人脸识别' ELSE ATTEND_TYPE_
+        END AS attendType,
+        DATA_.LNG_ AS lng,
+        DATA_.LAT_ AS lat
+        FROM
+        (
+        SELECT
+        in_data_.WORKER_UID_,
+        in_data_.WORKER_NAME_,
+        in_data_.DIRECTION_,
+        in_data_.DATE__,
+        in_data_.DATE_,
+        in_data_.PUNCH_TIME_,
+        in_data_.DEVICE_UID_,
+        in_data_.ATTEND_TYPE_,
+        in_data_.LNG_,
+        in_data_.LAT_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ ASC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        A.DEVICE_UID_,
+        A.ATTEND_TYPE_,
+        A.LNG_,
+        A.LAT_,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ &lt; #{firstAttendanceTimeDown}+':00'
+        AND A.DIRECTION_ = '1'
+        ) in_data_
+        WHERE
+        Rownumver = 1 UNION
+        SELECT
+        out_data_.WORKER_UID_,
+        out_data_.WORKER_NAME_,
+        out_data_.DIRECTION_,
+        out_data_.DATE__,
+        out_data_.DATE_,
+        out_data_.PUNCH_TIME_,
+        out_data_.DEVICE_UID_,
+        out_data_.ATTEND_TYPE_,
+        out_data_.LNG_,
+        out_data_.LAT_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ DESC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        A.DEVICE_UID_,
+        A.ATTEND_TYPE_,
+        A.LNG_,
+        A.LAT_,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ >= #{firstAttendanceTimeDown}+':00'
+        <if test="secondAttendanceTimeUp != null and secondAttendanceTimeUp != ''">
+            AND A.DATE_ &lt; #{secondAttendanceTimeUp}+':00'
+        </if>
+        AND A.DIRECTION_ = '0'
+        ) out_data_
+        WHERE
+        Rownumver = 1
+        ) DATA_
+        LEFT JOIN R_TEAM_MASTER TEAN_DATA_ ON ( TEAN_DATA_.ID_ = #{teamUid} )
+        LEFT JOIN R_WORKER_INFO WORKER_DATA_ ON ( WORKER_DATA_.ID_ = #{workerUid} )
+        LEFT JOIN T_CHECK_DEVICE DEVICE_DATA_ ON ( DATA_.DEVICE_UID_ = DEVICE_DATA_.ID_ )
+        ORDER BY
+        DATA_.DIRECTION_ DESC
+    </select>
+
+    <!--获取单人单天第二次考勤（明细===考勤时间段上下班考勤）-->
+    <select id="getSecondWorkerAttendanceDetailByParams" resultType="java.util.HashMap">
+        SELECT
+        TEAN_DATA_.TEAM_NAME_ AS teamName,
+        WORKER_DATA_.NAME_ AS workerName,
+        WORKER_DATA_.IDCARD_NUMBER_ AS idcardNumber,
+        format ( DATA_.DATE__, 'yyyy-MM-dd HH:mm:ss' ) AS date,
+        DATA_.DIRECTION_ AS direction,
+        DEVICE_DATA_.TITLE_ AS deviceName,
+        CASE
+
+        WHEN ATTEND_TYPE_ = '001' THEN
+        '人脸识别' ELSE ATTEND_TYPE_
+        END AS attendType,
+        DATA_.LNG_ AS lng,
+        DATA_.LAT_ AS lat
+        FROM
+        (
+        SELECT
+        in_data_.WORKER_UID_,
+        in_data_.WORKER_NAME_,
+        in_data_.DIRECTION_,
+        in_data_.DATE__,
+        in_data_.DATE_,
+        in_data_.PUNCH_TIME_,
+        in_data_.DEVICE_UID_,
+        in_data_.ATTEND_TYPE_,
+        in_data_.LNG_,
+        in_data_.LAT_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ ASC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        A.DEVICE_UID_,
+        A.ATTEND_TYPE_,
+        A.LNG_,
+        A.LAT_,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ &gt; #{firstAttendanceTimeDown}+':00'
+        AND A.DATE_ &lt; #{secondAttendanceTimeDown}+':00'
+        AND A.DIRECTION_ = '1' ) in_data_
+        WHERE
+        Rownumver = 1 UNION
+        SELECT
+        out_data_.WORKER_UID_,
+        out_data_.WORKER_NAME_,
+        out_data_.DIRECTION_,
+        out_data_.DATE__,
+        out_data_.DATE_,
+        out_data_.PUNCH_TIME_,
+        out_data_.DEVICE_UID_,
+        out_data_.ATTEND_TYPE_,
+        out_data_.LNG_,
+        out_data_.LAT_
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY A.DATE_ DESC ) AS Rownumver,
+        A.WORKER_UID_,
+        A.WORKER_NAME_,
+        A.DIRECTION_,
+        A.DATE_ AS DATE__,
+        A.DEVICE_UID_,
+        A.ATTEND_TYPE_,
+        A.LNG_,
+        A.LAT_,
+        CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+        CONVERT ( VARCHAR, A.DATE_, 108 ) PUNCH_TIME_
+        FROM
+        R_WORKER_ATTENDANCE A
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        AND A.TEAM_UID_ = #{teamUid}
+        AND A.WORKER_UID_ = #{workerUid}
+        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+        AND A.DATE_ > #{secondAttendanceTimeUp}+':00'
+        <if test="thirdAttendanceTimeUp != null and thirdAttendanceTimeUp != ''">
+            AND A.DATE_ &lt; #{thirdAttendanceTimeUp}+':00'
+        </if>
+        AND A.DIRECTION_ = '0'
+        ) out_data_
+        WHERE
+        Rownumver = 1
+        ) DATA_
+        LEFT JOIN R_TEAM_MASTER TEAN_DATA_ ON ( TEAN_DATA_.ID_ = #{teamUid} )
+        LEFT JOIN R_WORKER_INFO WORKER_DATA_ ON ( WORKER_DATA_.ID_ = #{workerUid} )
+        LEFT JOIN T_CHECK_DEVICE DEVICE_DATA_ ON ( DATA_.DEVICE_UID_ = DEVICE_DATA_.ID_ )
+        ORDER BY
+        DATA_.DIRECTION_ DESC
+    </select>
+
+    <!--获取单人单天第三次考勤（明细===考勤时间段上下班考勤）-->
+    <select id="getThirdWorkerAttendanceDetailByParams" resultType="java.util.HashMap">
+        SELECT
+        TEAN_DATA_.TEAM_NAME_ AS teamName,
+        WORKER_DATA_.NAME_ AS workerName,
+        WORKER_DATA_.IDCARD_NUMBER_ AS idcardNumber,
+        format ( DATA_.DATE__, 'yyyy-MM-dd HH:mm:ss' ) AS date,
+        DATA_.DIRECTION_ AS direction,
+        DEVICE_DATA_.TITLE_ AS deviceName,
+        CASE
+        WHEN ATTEND_TYPE_ = '001' THEN
+                '人脸识别' ELSE ATTEND_TYPE_
+            END AS attendType,
+            DATA_.LNG_ AS lng,
+            DATA_.LAT_ AS lat
+        FROM
+            (
+            SELECT
+                in_data_.WORKER_UID_,
+                in_data_.WORKER_NAME_,
+                in_data_.DIRECTION_,
+                in_data_.DATE__,
+                in_data_.DATE_,
+                in_data_.PUNCH_TIME_,
+                in_data_.DEVICE_UID_,
+                in_data_.ATTEND_TYPE_,
+                in_data_.LNG_,
+                in_data_.LAT_,
+                in_data_.PUNCH_TIME_UP_DOWN_
+            FROM
+                (
+                SELECT
+                ROW_NUMBER () OVER ( ORDER BY A.DATE_ ASC ) AS Rownumver,
+                A.WORKER_UID_,
+                A.WORKER_NAME_,
+                A.DIRECTION_,
+                A.DATE_ AS DATE__,
+                A.DEVICE_UID_,
+                    A.ATTEND_TYPE_,
+                    A.LNG_,
+                    A.LAT_,
+                CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+                CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_,
+                CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_UP_DOWN_
+                FROM
+                R_WORKER_ATTENDANCE A
+                WHERE
+                A.COMPANY_ = #{companyUid}
+                AND A.PROJ_UID_ = #{projUid}
+                AND A.TEAM_UID_ = #{teamUid}
+                AND A.WORKER_UID_ = #{workerUid}
+                AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+                AND A.DATE_ &gt; #{secondAttendanceTimeDown}+':00'
+                AND A.DATE_ &lt; #{thirdAttendanceTimeDown}+':00'
+                AND A.DIRECTION_ = '1'
+                ) in_data_
+            WHERE
+                Rownumver = 1 UNION
+                SELECT
+                out_data_.WORKER_UID_,
+                out_data_.WORKER_NAME_,
+                out_data_.DIRECTION_,
+                out_data_.DATE__,
+                out_data_.DATE_,
+                out_data_.PUNCH_TIME_,
+                out_data_.DEVICE_UID_,
+                out_data_.ATTEND_TYPE_,
+                out_data_.LNG_,
+                out_data_.LAT_,
+                out_data_.PUNCH_TIME_UP_DOWN_
+            FROM
+                (
+                SELECT
+                ROW_NUMBER () OVER ( ORDER BY A.DATE_ DESC ) AS Rownumver,
+                A.WORKER_UID_,
+                A.WORKER_NAME_,
+                A.DIRECTION_,
+                A.DATE_ AS DATE__,
+                A.DEVICE_UID_,
+                    A.ATTEND_TYPE_,
+                    A.LNG_,
+                    A.LAT_,
+                CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) DATE_,
+                CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_,
+                CONVERT ( VARCHAR, A.DATE_, 120 ) PUNCH_TIME_UP_DOWN_
+                FROM
+                R_WORKER_ATTENDANCE A
+                WHERE
+                A.COMPANY_ = #{companyUid}
+                AND A.PROJ_UID_ = #{projUid}
+                AND A.TEAM_UID_ = #{teamUid}
+                AND A.WORKER_UID_ = #{workerUid}
+                AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = #{dateDay}
+                AND A.DATE_ > #{thirdAttendanceTimeUp}+':00'
+                AND A.DIRECTION_ = '0'
+                ) out_data_
+            WHERE
+                Rownumver = 1
+                ) DATA_
+            LEFT JOIN R_TEAM_MASTER TEAN_DATA_ ON ( TEAN_DATA_.ID_ = #{teamUid} )
+                LEFT JOIN R_WORKER_INFO WORKER_DATA_ ON ( WORKER_DATA_.ID_ = #{workerUid} )
+            LEFT JOIN T_CHECK_DEVICE DEVICE_DATA_ ON ( DATA_.DEVICE_UID_ = DEVICE_DATA_.ID_ )
+        ORDER BY
+            DATA_.DIRECTION_ DESC
+    </select>
+
+    <!--获取统计的考勤记录信息-->
+    <select id="getWorkerAttendanceDetail" resultType="java.util.HashMap">
+        SELECT DATA_.* FROM (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY B.CREATE_TIME_ DESC ) AS Rownumver,
+        A.TEAM_NAME_ AS teamName,
+        A.WORKER_NAME_ AS workerName,
+        A.IDCARD_NUMBER_ AS idcardNumber,
+        A.DATE_ AS date,
+        A.DIRECTION_ AS direction,
+        A.DEVICE_NAME_ AS deviceName,
+        A.ATTEND_TYPE_ AS attendType,
+        A.LNG_ AS lng,
+        A.LAT_ AS lat,
+        B.CREATE_TIME_
+        FROM R_WORKER_ATTENDANCE_TEMP A
+        LEFT JOIN R_WORKER_INFO B ON (A.WORKER_UID_ = B.ID_)
+         ) DATA_
+        WHERE
+            (DATA_.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+        ORDER BY
+            DATA_.CREATE_TIME_ DESC;
+    </select>
+
+    <!--获取统计的考勤记录信息-->
+    <select id="getWorkerAttendanceDetailTotalCount" resultType="int">
+        SELECT COUNT(TEAM_NAME_)
+        FROM R_WORKER_ATTENDANCE_TEMP
+    </select>
+
+    <!--获取统计的考勤记录信息-->
+    <select id="getWorkerAttendanceDetailReport" resultType="java.util.HashMap">
+        SELECT
+        TEAM_NAME_ AS teamName,
+        WORKER_NAME_ AS workerName,
+        IDCARD_NUMBER_ AS idcardNumber,
+        DATE_ AS date,
+        (case DIRECTION_ WHEN '1' THEN '入场' WHEN '0' THEN '出场' ELSE '' END) AS direction,
+        DEVICE_NAME_ AS deviceName,
+        ATTEND_TYPE_ AS attendType,
+        LNG_ AS lng,
+        LAT_ AS lat
+        FROM R_WORKER_ATTENDANCE_TEMP
+    </select>
+
+    <!--获取统计的考勤报表信息-->
+    <select id="getWorkerAttendanceReport" resultType="java.util.HashMap">
+          SELECT
+            *
+        FROM
+            (
+                SELECT
+                ROW_NUMBER () OVER ( ORDER BY F.CREATE_TIME_ DESC ) AS Rownumver,
+            E.WORKER_UID_,
+            F.NAME_ AS workerName,
+            F.IDCARD_NUMBER_ AS idcardNumber,
+            F.WORK_TYPE_CODE_ AS workTypeCode,
+            E.ACCTENDANCE_COUNT_ AS attendanceCount,
+            F.CREATE_TIME_
+        FROM
+            (
+            SELECT
+                D.WORKER_UID_,
+                SUM ( D.ACCTENDANCE_COUNT_ ) AS ACCTENDANCE_COUNT_
+            FROM
+                (
+                SELECT
+                    B.WORKER_UID_,
+                    COUNT ( B.WORKER_UID_ ) AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.*
+                    FROM
+                        (
+                        SELECT
+                            ROW_NUMBER () OVER ( partition BY WORKER_UID_, TIME_SLOT_, CONVERT ( CHAR ( 10 ), DATE_, 120 ) ORDER BY WORKER_UID_ DESC ) AS Rownumver,
+                            WORKER_UID_,
+                            TIME_SLOT_,
+                            CONVERT ( CHAR ( 10 ), DATE_, 120 ) AS DATE_
+                        FROM
+                            R_WORKER_ATTENDANCE_TEMP
+                        WHERE
+                            ALL_DAY_FLAG_ = 'ALL_DAY'
+                        ) A
+                    WHERE
+                        A.Rownumver = 1
+                    ) B
+                GROUP BY
+                    B.WORKER_UID_ UNION ALL
+                SELECT
+                    B.WORKER_UID_,
+                    COUNT ( B.WORKER_UID_ ) / 2 AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.*
+                    FROM
+                        (
+                        SELECT
+                            ROW_NUMBER () OVER ( partition BY WORKER_UID_, TIME_SLOT_, CONVERT ( CHAR ( 10 ), DATE_, 120 ) ORDER BY WORKER_UID_ DESC ) AS Rownumver,
+                            WORKER_UID_,
+                            TIME_SLOT_,
+                            CONVERT ( CHAR ( 10 ), DATE_, 120 ) AS DATE_,
+                            ALL_DAY_FLAG_
+                        FROM
+                            R_WORKER_ATTENDANCE_TEMP
+                        WHERE
+                            TIME_SLOT_ IN ( 'FRIST', 'SECONDE' )
+                            AND ( ALL_DAY_FLAG_ IS NULL OR ALL_DAY_FLAG_ = '' )
+                        ) A
+                    WHERE
+                        a.Rownumver = 1
+                    ) B
+                GROUP BY
+                    B.WORKER_UID_ UNION ALL
+                SELECT
+                    C.IN_WORKER_UID_ AS WORKER_UID_,
+                    SUM ( C.ACCTENDANCE_COUNT_ ) AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_ AS IN_WORKER_UID_,
+                        A.DATE_ AS IN_DATE_,
+                        B.WORKER_UID_ AS OUT_WORKER_UID_,
+                        B.DATE_ AS OUT_DATE_,
+                        ROUND(
+                            CAST ( CAST ( datediff( MINUTE, A.DATE_, B.DATE_ ) / 60.0 AS DECIMAL ( 9, 2 )) AS FLOAT ) / 24,
+                            2
+                        ) AS ACCTENDANCE_COUNT_
+                    FROM
+                        R_WORKER_ATTENDANCE_TEMP A
+                        LEFT JOIN ( SELECT WORKER_UID_, DATE_ FROM R_WORKER_ATTENDANCE_TEMP WHERE TIME_SLOT_ = 'THIRD' AND DIRECTION_ = '0' ) B ON (
+                            A.WORKER_UID_ = B.WORKER_UID_
+                        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = CONVERT ( CHAR ( 10 ), B.DATE_, 120 ))
+                    WHERE
+                        A.TIME_SLOT_ = 'THIRD'
+                        AND A.DIRECTION_ = '1'
+                    ) C
+                GROUP BY
+                    C.IN_WORKER_UID_
+                ) D
+            GROUP BY
+                D.WORKER_UID_
+            ) E
+            LEFT JOIN R_WORKER_INFO F ON ( E.WORKER_UID_ = F.ID_ )
+            ) DATA_
+                WHERE
+                    (DATA_.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+                ORDER BY
+                    DATA_.CREATE_TIME_ DESC
+    </select>
+
+    <!--获取统计的考勤报表信息(总数)-->
+    <select id="getWorkerAttendanceReportCount" resultType="int">
+        SELECT COUNT
+            ( E.WORKER_UID_ )
+        FROM
+            (
+            SELECT
+                D.WORKER_UID_,
+                SUM ( D.ACCTENDANCE_COUNT_ ) AS ACCTENDANCE_COUNT_
+            FROM
+                (
+                SELECT
+                    B.WORKER_UID_,
+                    COUNT ( B.WORKER_UID_ ) AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.*
+                    FROM
+                        (
+                        SELECT
+                            ROW_NUMBER () OVER ( partition BY WORKER_UID_, TIME_SLOT_, CONVERT ( CHAR ( 10 ), DATE_, 120 ) ORDER BY WORKER_UID_ DESC ) AS Rownumver,
+                            WORKER_UID_,
+                            TIME_SLOT_,
+                            CONVERT ( CHAR ( 10 ), DATE_, 120 ) AS DATE_
+                        FROM
+                            R_WORKER_ATTENDANCE_TEMP
+                        WHERE
+                            ALL_DAY_FLAG_ = 'ALL_DAY'
+                        ) A
+                    WHERE
+                        A.Rownumver = 1
+                    ) B
+                GROUP BY
+                    B.WORKER_UID_ UNION ALL
+                SELECT
+                    B.WORKER_UID_,
+                    COUNT ( B.WORKER_UID_ ) / 2 AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.*
+                    FROM
+                        (
+                        SELECT
+                            ROW_NUMBER () OVER ( partition BY WORKER_UID_, TIME_SLOT_, CONVERT ( CHAR ( 10 ), DATE_, 120 ) ORDER BY WORKER_UID_ DESC ) AS Rownumver,
+                            WORKER_UID_,
+                            TIME_SLOT_,
+                            CONVERT ( CHAR ( 10 ), DATE_, 120 ) AS DATE_,
+                            ALL_DAY_FLAG_
+                        FROM
+                            R_WORKER_ATTENDANCE_TEMP
+                        WHERE
+                            TIME_SLOT_ IN ( 'FRIST', 'SECONDE' )
+                            AND ( ALL_DAY_FLAG_ IS NULL OR ALL_DAY_FLAG_ = '' )
+                        ) A
+                    WHERE
+                        a.Rownumver = 1
+                    ) B
+                GROUP BY
+                    B.WORKER_UID_ UNION ALL
+                SELECT
+                    C.IN_WORKER_UID_ AS WORKER_UID_,
+                    SUM ( C.ACCTENDANCE_COUNT_ ) AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_ AS IN_WORKER_UID_,
+                        A.DATE_ AS IN_DATE_,
+                        B.WORKER_UID_ AS OUT_WORKER_UID_,
+                        B.DATE_ AS OUT_DATE_,
+                        ROUND(
+                            CAST ( CAST ( datediff( MINUTE, A.DATE_, B.DATE_ ) / 60.0 AS DECIMAL ( 9, 2 )) AS FLOAT ) / 24,
+                            2
+                        ) AS ACCTENDANCE_COUNT_
+                    FROM
+                        R_WORKER_ATTENDANCE_TEMP A
+                        LEFT JOIN ( SELECT WORKER_UID_, DATE_ FROM R_WORKER_ATTENDANCE_TEMP WHERE TIME_SLOT_ = 'THIRD' AND DIRECTION_ = '0' ) B ON (
+                            A.WORKER_UID_ = B.WORKER_UID_
+                        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = CONVERT ( CHAR ( 10 ), B.DATE_, 120 ))
+                    WHERE
+                        A.TIME_SLOT_ = 'THIRD'
+                        AND A.DIRECTION_ = '1'
+                    ) C
+                GROUP BY
+                    C.IN_WORKER_UID_
+                ) D
+            GROUP BY
+            D.WORKER_UID_
+            ) E
+    </select>
+
+    <!--获取统计的考勤报表信息(导出)-->
+    <select id="getWorkerAttendanceReportExport" resultType="java.util.HashMap">
+        SELECT
+            E.WORKER_UID_,
+            F.NAME_ AS workerName,
+            F.IDCARD_NUMBER_ AS idcardNumber,
+            F.WORK_TYPE_CODE_ AS workTypeCode,
+            E.ACCTENDANCE_COUNT_ AS attendanceCount
+        FROM
+            (
+            SELECT
+                D.WORKER_UID_,
+                SUM ( D.ACCTENDANCE_COUNT_ ) AS ACCTENDANCE_COUNT_
+            FROM
+                (
+                SELECT
+                    B.WORKER_UID_,
+                    COUNT ( B.WORKER_UID_ ) AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.*
+                    FROM
+                        (
+                        SELECT
+                            ROW_NUMBER () OVER ( partition BY WORKER_UID_, TIME_SLOT_, CONVERT ( CHAR ( 10 ), DATE_, 120 ) ORDER BY WORKER_UID_ DESC ) AS Rownumver,
+                            WORKER_UID_,
+                            TIME_SLOT_,
+                            CONVERT ( CHAR ( 10 ), DATE_, 120 ) AS DATE_
+                        FROM
+                            R_WORKER_ATTENDANCE_TEMP
+                        WHERE
+                            ALL_DAY_FLAG_ = 'ALL_DAY'
+                        ) A
+                    WHERE
+                        A.Rownumver = 1
+                    ) B
+                GROUP BY
+                    B.WORKER_UID_ UNION ALL
+                SELECT
+                    B.WORKER_UID_,
+                    COUNT ( B.WORKER_UID_ ) / 2 AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.*
+                    FROM
+                        (
+                        SELECT
+                            ROW_NUMBER () OVER ( partition BY WORKER_UID_, TIME_SLOT_, CONVERT ( CHAR ( 10 ), DATE_, 120 ) ORDER BY WORKER_UID_ DESC ) AS Rownumver,
+                            WORKER_UID_,
+                            TIME_SLOT_,
+                            CONVERT ( CHAR ( 10 ), DATE_, 120 ) AS DATE_,
+                            ALL_DAY_FLAG_
+                        FROM
+                            R_WORKER_ATTENDANCE_TEMP
+                        WHERE
+                            TIME_SLOT_ IN ( 'FRIST', 'SECONDE' )
+                            AND ( ALL_DAY_FLAG_ IS NULL OR ALL_DAY_FLAG_ = '' )
+                        ) A
+                    WHERE
+                        a.Rownumver = 1
+                    ) B
+                GROUP BY
+                    B.WORKER_UID_ UNION ALL
+                SELECT
+                    C.IN_WORKER_UID_ AS WORKER_UID_,
+                    SUM ( C.ACCTENDANCE_COUNT_ ) AS ACCTENDANCE_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_ AS IN_WORKER_UID_,
+                        A.DATE_ AS IN_DATE_,
+                        B.WORKER_UID_ AS OUT_WORKER_UID_,
+                        B.DATE_ AS OUT_DATE_,
+                        ROUND(
+                            CAST ( CAST ( datediff( MINUTE, A.DATE_, B.DATE_ ) / 60.0 AS DECIMAL ( 9, 2 )) AS FLOAT ) / 24,
+                            2
+                        ) AS ACCTENDANCE_COUNT_
+                    FROM
+                        R_WORKER_ATTENDANCE_TEMP A
+                        LEFT JOIN ( SELECT WORKER_UID_, DATE_ FROM R_WORKER_ATTENDANCE_TEMP WHERE TIME_SLOT_ = 'THIRD' AND DIRECTION_ = '0' ) B ON (
+                            A.WORKER_UID_ = B.WORKER_UID_
+                        AND CONVERT ( CHAR ( 10 ), A.DATE_, 120 ) = CONVERT ( CHAR ( 10 ), B.DATE_, 120 ))
+                    WHERE
+                        A.TIME_SLOT_ = 'THIRD'
+                        AND A.DIRECTION_ = '1'
+                    ) C
+                GROUP BY
+                    C.IN_WORKER_UID_
+                ) D
+            GROUP BY
+                D.WORKER_UID_
+            ) E
+            LEFT JOIN R_WORKER_INFO F ON ( E.WORKER_UID_ = F.ID_ )
+        ORDER BY
+            F.CREATE_TIME_ DESC
+    </select>
+
+    <!--统计出勤人员数量-->
+    <select id="getInOutWorkerAttendanceTotalCount" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT
+				'in' AS 'TYPE_',
+				COUNT(T_IN.WORKER_UID_) AS COUNT_
+			FROM
+				(
+				SELECT DISTINCT
+					WORKER_UID_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND DATE_FORMAT(DATE_, '%Y-%m-%d') = #{date}
+					GROUP BY WORKER_UID_
+				) T_IN UNION
+			SELECT
+				'out' as 'TYPE_',
+				COUNT(T_OUT.WORKER_UID_) AS COUNT_
+			FROM
+				(
+				SELECT DISTINCT
+					WORKER_UID_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND DATE_FORMAT(DATE_, '%Y-%m-%d') = #{date}
+					GROUP BY WORKER_UID_
+				) T_OUT			
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT
+				'in' AS 'TYPE_',
+				COUNT ( T_IN.WORKER_UID_ ) AS COUNT_
+			FROM
+				(
+				SELECT DISTINCT
+					WORKER_UID_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND CONVERT(VARCHAR(10), DATE_, 20) = #{date}
+					GROUP BY WORKER_UID_
+				) T_IN UNION
+			SELECT
+				'out' as 'TYPE_',
+				COUNT ( T_OUT.WORKER_UID_ ) AS COUNT_
+			FROM
+				(
+				SELECT DISTINCT
+					WORKER_UID_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND CONVERT(VARCHAR(10), DATE_, 20) = #{date}
+					GROUP BY WORKER_UID_
+				) T_OUT
+		</if>
+		
+	</select>
+
+    <!--获取人员分析数据-->
+    <select id="getPersonnelAnalysisByProjUid" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT
+            F.WORK_TYPE_CODE_ AS workTypeCode,
+            ifnull(F.IN_COUNT_ , 0) AS inCount,
+            ifnull(F.OUT_COUNT_ , 0) AS outCount,
+            (
+            ifnull(F.IN_COUNT_ , 0) - ifnull(F.OUT_COUNT_ , 0)) AS onCount,
+            G.TOTAL_COUNT_ AS totalCount
+        FROM
+            (
+            SELECT
+                D.WORK_TYPE_CODE_,
+                D.IN_COUNT_ ,
+                E.OUT_COUNT_
+            FROM
+                (
+                SELECT
+                    C.WORK_TYPE_CODE_,
+                    COUNT(C.WORKER_UID_) AS IN_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_,
+                        B.ID_,
+                        B.WORK_TYPE_CODE_
+                    FROM
+                        (
+                        SELECT
+                            WORKER_UID_
+                        FROM
+                            R_WORKER_ATTENDANCE A
+                        WHERE
+                            COMPANY_ = #{companyUid}
+                            AND PROJ_UID_ = #{projUid}
+                            AND DIRECTION_ = '1'
+                            AND DATE_FORMAT(DATE_, '%Y-%m-%d') = #{date}
+                        GROUP BY
+                            WORKER_UID_
+                        ) A
+                    LEFT JOIN R_WORKER_INFO B ON (A.WORKER_UID_ = B.ID_)) C
+                GROUP BY
+                    C.WORK_TYPE_CODE_
+                ) D
+                LEFT JOIN (
+                SELECT
+                    C.WORK_TYPE_CODE_,
+                    COUNT(C.WORKER_UID_) AS OUT_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_,
+                        B.ID_,
+                        B.WORK_TYPE_CODE_
+                    FROM
+                        (
+                        SELECT
+                            WORKER_UID_
+                        FROM
+                            R_WORKER_ATTENDANCE A
+                        WHERE
+                            COMPANY_ = #{companyUid}
+                            AND PROJ_UID_ = #{projUid}
+                            AND DIRECTION_ = '0'
+                            AND DATE_FORMAT(DATE_, '%Y-%m-%d') = #{date}
+                        GROUP BY
+                            WORKER_UID_
+                        ) A
+                    LEFT JOIN R_WORKER_INFO B ON (A.WORKER_UID_ = B.ID_)) C
+                GROUP BY
+                    C.WORK_TYPE_CODE_
+                ) E ON(D.WORK_TYPE_CODE_ = E.WORK_TYPE_CODE_)) F
+            LEFT JOIN (
+            SELECT
+                B.WORK_TYPE_CODE_,
+                COUNT(B.WORK_TYPE_CODE_) AS TOTAL_COUNT_
+            FROM
+                R_PROJECT_WORKER A
+                LEFT JOIN R_WORKER_INFO B ON (A.WORKER_UID_ = B.ID_)
+            WHERE
+                A.COMPANY_ = #{companyUid}
+                AND A.PROJ_UID_ = #{projUid}
+            GROUP BY
+                B.WORK_TYPE_CODE_
+            ) G ON(
+            F.WORK_TYPE_CODE_ = G.WORK_TYPE_CODE_)	
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT
+            F.WORK_TYPE_CODE_ AS workTypeCode,
+            isnull( F.IN_COUNT_ , 0 ) AS inCount,
+            isnull( F.OUT_COUNT_ , 0 ) AS outCount,
+            (
+            isnull( F.IN_COUNT_ , 0 ) - isnull( F.OUT_COUNT_ , 0 )) AS onCount,
+            G.TOTAL_COUNT_ AS totalCount
+        FROM
+            (
+            SELECT
+                D.WORK_TYPE_CODE_,
+                D.IN_COUNT_ ,
+                E.OUT_COUNT_
+            FROM
+                (
+                SELECT
+                    C.WORK_TYPE_CODE_,
+                    COUNT ( C.WORKER_UID_ ) AS IN_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_,
+                        B.ID_,
+                        B.WORK_TYPE_CODE_
+                    FROM
+                        (
+                        SELECT
+                            WORKER_UID_
+                        FROM
+                            R_WORKER_ATTENDANCE A
+                        WHERE
+                            COMPANY_ = #{companyUid}
+                            AND PROJ_UID_ = #{projUid}
+                            AND DIRECTION_ = '1'
+                            AND CONVERT(VARCHAR(10), DATE_, 20) = #{date}
+                        GROUP BY
+                            WORKER_UID_
+                        ) A
+                    LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )) C
+                GROUP BY
+                    C.WORK_TYPE_CODE_
+                ) D
+                LEFT JOIN (
+                SELECT
+                    C.WORK_TYPE_CODE_,
+                    COUNT ( C.WORKER_UID_ ) AS OUT_COUNT_
+                FROM
+                    (
+                    SELECT
+                        A.WORKER_UID_,
+                        B.ID_,
+                        B.WORK_TYPE_CODE_
+                    FROM
+                        (
+                        SELECT
+                            WORKER_UID_
+                        FROM
+                            R_WORKER_ATTENDANCE A
+                        WHERE
+                            COMPANY_ = #{companyUid}
+                            AND PROJ_UID_ = #{projUid}
+                            AND DIRECTION_ = '0'
+                            AND CONVERT(VARCHAR(10), DATE_, 20) = #{date}
+                        GROUP BY
+                            WORKER_UID_
+                        ) A
+                    LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )) C
+                GROUP BY
+                    C.WORK_TYPE_CODE_
+                ) E ON ( D.WORK_TYPE_CODE_ = E.WORK_TYPE_CODE_ )) F
+            LEFT JOIN (
+            SELECT
+                B.WORK_TYPE_CODE_,
+                COUNT ( B.WORK_TYPE_CODE_ ) AS TOTAL_COUNT_
+            FROM
+                R_PROJECT_WORKER A
+                LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+            WHERE
+                A.COMPANY_ = #{companyUid}
+                AND A.PROJ_UID_ = #{projUid}
+            GROUP BY
+                B.WORK_TYPE_CODE_
+            ) G ON (
+            F.WORK_TYPE_CODE_ = G.WORK_TYPE_CODE_)
+		</if>
+		
+	</select>
+	
+	
+	<!-- 查询外部考勤记录 -->
+	<select id="searchExternalAttendanceRecordList" resultType="java.util.HashMap">
+		SELECT DATA_.* FROM (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY B.CREATE_TIME_ DESC ) AS Rownumver,
+        COUNT(1) OVER() AS totalCount, 
+        A.TEAM_NAME_ AS teamName,
+        A.WORKER_NAME_ AS workerName,
+        A.IDCARD_NUMBER_ AS idcardNumber,
+        A.DATE_ AS date,
+        A.DIRECTION_ AS direction,
+        A.DEVICE_NAME_ AS deviceName,
+        A.ATTEND_TYPE_ AS attendType,
+        A.LNG_ AS lng,
+        A.LAT_ AS lat,
+        B.CREATE_TIME_
+        FROM R_WORKER_ATTENDANCE_EXT A
+        WHERE PROJ_UID_ = '49bb8430ca6b43c09030352cf4350901'
+		AND TEAM_UID_ = 'acc4bba378874e7295ea123e7e7b03d1'
+         ) DATA_
+        WHERE
+            (DATA_.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+        ORDER BY
+            DATA_.CREATE_TIME_ DESC;
+	</select>
+	
+	
+	<!-- 查询是否接收是否有重复数据 -->
+	<select id="searchRepetitionData" resultType="Integer" >
+		select isnull(count(b.id_),0) FROM R_PROJECT_WORKER a 
+		LEFT JOIN R_WORKER_INFO b ON a.WORKER_UID_=b.ID_
+		where a.TEAM_UID_ = #{teamUid} 
+		and a.PROJ_UID_ = #{projUid}
+		and b.id_ = #{userUid}
+	</select>
+	
+	
+	<select id="checkTeamName" resultType="Integer" >
+		select isnull(count(id_),0) from R_TEAM_MASTER where PROJ_UID_ = #{projUid} and ID_ = #{teamUid}
+	</select>
+	
+	
+	<!-- 获取考勤记录列表(重写) -->
+	<select id="getAttendanceRecords" resultType="java.util.HashMap" >
+		SELECT * FROM (
+			SELECT ROW_NUMBER() OVER(ORDER BY b.CREATE_TIME_ DESC) as Rownumver, b.CREATE_TIME_, 
+				b.TEAM_NAME_ teamName, b.WORKER_NAME_ workerName, b.IDCARD_NUMBER_ idcardNumber, 
+				b.DIRECTION_ directory, b.ATTEND_TYPE_ attendType, b.LNG_ lng, b.LAT_ lat,
+                CONVERT(varchar, b.DATE_, 120 ) date,
+				COUNT(1) OVER() AS totalCount 
+				from R_WORKER_INFO a left join R_WORKER_ATTENDANCE b on a.id_ = b.WORKER_UID_
+				where b.PROJ_UID_ = #{projUid} and TEAM_UID_ = #{teamUid}
+				and CONVERT ( CHAR ( 7 ), b.DATE_, 120 ) = #{date}
+			<if test="search != null and search != '' ">
+				and b.WORKER_NAME_ like '%'+ #{search} +'%'
+			</if>
+			
+		) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc
+	</select>
+	
+	
+	<!-- 获取考勤记录列表(重写)(MySql) -->
+	<select id="getAttendanceRecordsMySql" resultType="java.util.HashMap" >
+		SELECT * FROM (
+			SELECT
+				b.CREATE_TIME_, b.TEAM_NAME_ teamName, b.WORKER_NAME_ workerName, b.IDCARD_NUMBER_ idcardNumber, 
+				b.DIRECTION_ directory, b.ATTEND_TYPE_ attendType, b.LNG_ lng, b.LAT_ lat, 
+				DATE_FORMAT(b.DATE_, '%Y-%m-%d %H:%i:%s') date,
+				(
+					select count(1) from R_WORKER_INFO a left join R_WORKER_ATTENDANCE b on a.id_ = b.WORKER_UID_
+					where b.PROJ_UID_ = #{projUid} and TEAM_UID_ = #{teamUid}
+					and DATE_FORMAT(b.DATE_, '%Y-%m') = #{date}
+					<if test="search != null and search != '' ">
+						and b.WORKER_NAME_ like ('%'+ #{search} +'%')
+					</if>
+				) totalCount
+				from R_WORKER_INFO a left join R_WORKER_ATTENDANCE b on a.id_ = b.WORKER_UID_
+				where b.PROJ_UID_ = #{projUid} and TEAM_UID_ = #{teamUid}
+				and DATE_FORMAT(b.DATE_, '%Y-%m') = #{date}
+			<if test="search != null and search != '' ">
+				and b.WORKER_NAME_ like ('%'+ #{search} +'%')
+			</if>
+			
+		) data order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+	</select>
+	
+	
+	<!-- 根据项目id查询公司id -->
+	<select id="searchCompanyUidByProjUid" resultType="java.util.HashMap" >
+		select COMPANY_ companyUid from WX_PROJECT where id_ = #{projUid}
+	</select>
+	
+	
+	<select id="searchWorkerInfoList" resultType="java.util.HashMap" >
+		SELECT b.id_ id, (select id_ from T_ATTACHMENT where PARENT_ID_ = b.id_) attachmentId, b.COMPANY_,  
+		b.CREATE_TIME_, b.TEAM_NAME_ teamName, b.WORKER_NAME_ workerName, b.IDCARD_NUMBER_ idcardNumber,
+		(select SUFFIX_ from T_ATTACHMENT where PARENT_ID_ = b.id_) SUFFIX_,  
+		b.DIRECTION_ directory, b.ATTEND_TYPE_ attendType, b.LNG_ lng, b.LAT_ lat, 
+		(select PROJECT_CODE_ from wx_project where id_= b.proj_uid_) projectCode, 
+		(select TEAM_CODE_ from r_team_master where id_ = b.TEAM_UID_ ) teamCode, b.DATE_ 
+		from R_WORKER_INFO a left join R_WORKER_ATTENDANCE b on a.id_ = b.WORKER_UID_
+		where b.PROJ_UID_ = #{projUid} and (b.PUSH_STATUS_ = 0 or b.PUSH_STATUS_ is null)
+	</select>
+	
+	
+	<!-- 更新考勤记录上传记录 -->
+	<update id="updateUploadStatus">
+		update R_WORKER_ATTENDANCE set PUSH_STATUS_ = 2 where id_ = #{id}
+	</update>
+	
+	
+	<!-- 查询接入的平台 -->
+	<select id="searchPlatformJoint" resultType="java.util.HashMap" >
+		select 
+		<if test="dbType == 'mssql'">
+			top 1 
+		</if>
+		*  
+		from T_CHECK_DEVICE where PROJ_UID_ = #{projUid} and TITLE_ = '1'
+		<if test="dbType == 'mysql'">
+			LIMIT 1
+		</if>
+	</select>
+	
+</mapper> 

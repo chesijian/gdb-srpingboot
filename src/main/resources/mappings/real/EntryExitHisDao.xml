@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.EntryExitHisDao">
+
+    <resultMap id="entryExitHisResultMap" type="java.util.HashMap">
+        <id property="id" column="ID_" jdbcType="VARCHAR"/>
+        <result property="projUid" column="PROJ_UID_" jdbcType="VARCHAR"/>
+        <result property="teamUid" column="TEAM_UID" jdbcType="VARCHAR"/>
+        <result property="workerUid" column="WORKER_UID_" jdbcType="VARCHAR"/>
+        <result property="workerName" column="NAME_" jdbcType="VARCHAR"/>
+        <result property="cellphone" column="CELLPHONE_" jdbcType="VARCHAR"/>
+        <result property="idcardNumber" column="IDCARD_NUMBER_" jdbcType="VARCHAR"/>
+		<result property="workType" column="WORKER_TYPE_" jdbcType="VARCHAR"/>
+		<result property="workTypeCode" column="WORK_TYPE_CODE_" jdbcType="VARCHAR"/>
+        <result property="entryExitFlag" column="ENTRY_EXIT_FLAG_" jdbcType="VARCHAR"/>
+        <result property="entryExitTime" column="ENTRY_EXIT_TIME_" jdbcType="TIMESTAMP"/>
+        <collection property="attachment" column="{ID_ = ID_}"  javaType="java.util.List"  select="searchAttachmentList" />
+    </resultMap>
+	
+	<select id="searchAttachmentList" resultType="java.util.HashMap">
+		select * from T_ATTACHMENT where PARENT_ID_ = #{ID_} order by CREATE_TIME_ desc 
+	</select>
+	
+    <!--获取人员进退场履历信息（项目主键，班组主键,进退场标记）-->
+    <select id="getEntryExitHistList" resultMap="entryExitHisResultMap">
+			SELECT *
+		FROM
+		(
+				SELECT
+				ROW_NUMBER () OVER (ORDER BY A.CREATE_TIME_ DESC) AS Rownumver,
+			A.*, B.ENTRY_EXIT_FLAG_,
+			format(B.ENTRY_EXIT_TIME_,'yyyy-MM-dd') ENTRY_EXIT_TIME_
+		FROM
+			(
+				SELECT
+					R_P_W.ID_,
+					R_P_W.PROJ_UID_,
+					R_P_W.TEAM_UID_,
+					R_P_W.WORKER_UID_,
+					R_W_I.NAME_,
+					R_W_I.CELLPHONE_,
+					R_W_I.IDCARD_NUMBER_,
+					R_W_I.WORK_TYPE_CODE_,
+					R_W_I.CREATE_TIME_
+				FROM
+					R_PROJECT_WORKER R_P_W
+				LEFT JOIN R_WORKER_INFO R_W_I ON (
+					R_P_W.WORKER_UID_ = R_W_I.ID_
+					AND R_W_I.COMPANY_ = #{companyUid}
+				)
+				WHERE R_P_W.COMPANY_ = #{companyUid}
+				AND	R_P_W.PROJ_UID_ = #{projUid}
+				AND R_P_W.TEAM_UID_ = #{teamUid}
+			) A
+		LEFT JOIN (
+			SELECT
+				PROJ_UID_,
+				TEAM_UID_,
+				WORKER_UID_,
+				ENTRY_EXIT_FLAG_,
+				MAX (ENTRY_EXIT_TIME_) AS ENTRY_EXIT_TIME_
+			FROM
+				R_USER_ENTRY_EXIT_HIS
+			WHERE COMPANY_ = #{companyUid}
+				AND PROJ_UID_ = #{projUid}
+				AND TEAM_UID_ = #{teamUid}
+				AND ENTRY_EXIT_FLAG_ = #{entryExitFlag}
+			GROUP BY
+				PROJ_UID_,
+				TEAM_UID_,
+				WORKER_UID_,
+				ENTRY_EXIT_FLAG_
+		) B ON (
+			A.PROJ_UID_ = B.PROJ_UID_
+			AND A.TEAM_UID_ = B.TEAM_UID_
+			AND A.WORKER_UID_ = B.WORKER_UID_
+		)
+	) data
+		WHERE
+			(data.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+		ORDER BY
+			data.CREATE_TIME_ DESC;
+	</select>
+	
+	
+    <!--获取人员进退场履历信息（项目主键，班组主键,进退场标记）(MySql)-->
+    <select id="getEntryExitHistListMySql" resultMap="entryExitHisResultMap">
+		SELECT *
+				FROM
+				(
+						SELECT
+					A.*, B.ENTRY_EXIT_FLAG_,
+					DATE_FORMAT(B.ENTRY_EXIT_TIME_,'%Y-%m-%d') ENTRY_EXIT_TIME_
+				FROM
+					(
+						SELECT
+							R_P_W.ID_,
+							R_P_W.PROJ_UID_,
+							R_P_W.TEAM_UID_,
+							R_P_W.WORKER_UID_,
+							R_W_I.NAME_,
+							R_W_I.CELLPHONE_,
+							R_W_I.IDCARD_NUMBER_,
+							R_W_I.WORK_TYPE_CODE_,
+							R_W_I.CREATE_TIME_
+						FROM
+							R_PROJECT_WORKER R_P_W
+						LEFT JOIN R_WORKER_INFO R_W_I ON (
+							R_P_W.WORKER_UID_ = R_W_I.ID_
+							AND R_W_I.COMPANY_ = #{companyUid}
+						)
+						WHERE R_P_W.COMPANY_ = #{companyUid}
+						AND	R_P_W.PROJ_UID_ = #{projUid}
+						AND R_P_W.TEAM_UID_ = #{teamUid}
+					) A
+				LEFT JOIN (
+					SELECT
+						PROJ_UID_,
+						TEAM_UID_,
+						WORKER_UID_,
+						ENTRY_EXIT_FLAG_,
+						MAX(ENTRY_EXIT_TIME_) AS ENTRY_EXIT_TIME_
+					FROM
+						R_USER_ENTRY_EXIT_HIS
+					WHERE COMPANY_ = #{companyUid}
+						AND PROJ_UID_ = #{projUid}
+						AND TEAM_UID_ = #{teamUid}
+						AND ENTRY_EXIT_FLAG_ = #{entryExitFlag}
+					GROUP BY
+						PROJ_UID_,
+						TEAM_UID_,
+						WORKER_UID_,
+						ENTRY_EXIT_FLAG_
+				) B ON (
+					A.PROJ_UID_ = B.PROJ_UID_
+					AND A.TEAM_UID_ = B.TEAM_UID_
+					AND A.WORKER_UID_ = B.WORKER_UID_
+				)
+			) data
+				ORDER BY
+					data.CREATE_TIME_ DESC LIMIT #{startIndex}, #{endIndex}
+	</select>
+
+
+    <!--获取人员进退场履历总条数-->
+    <select id="getEntryExitHistTotalCount" resultType="int">
+		SELECT COUNT(A.ID_)
+	FROM
+		(
+			SELECT
+				R_P_W.ID_,
+				R_P_W.PROJ_UID_,
+				R_P_W.TEAM_UID_,
+				R_P_W.WORKER_UID_,
+				R_W_I.NAME_,
+				R_W_I.CELLPHONE_,
+				R_W_I.IDCARD_NUMBER_,
+				R_W_I.WORK_TYPE_CODE_
+			FROM
+				R_PROJECT_WORKER R_P_W
+			LEFT JOIN R_WORKER_INFO R_W_I ON (
+				R_P_W.WORKER_UID_ = R_W_I.ID_
+				AND R_W_I.COMPANY_ = #{companyUid}
+			)
+			WHERE R_P_W.COMPANY_ = #{companyUid}
+			AND	R_P_W.PROJ_UID_ = #{projUid}
+			AND R_P_W.TEAM_UID_ = #{teamUid}
+		) A
+	LEFT JOIN (
+		SELECT
+			PROJ_UID_,
+			TEAM_UID_,
+			WORKER_UID_,
+			ENTRY_EXIT_FLAG_,
+			MAX(ENTRY_EXIT_TIME_) AS ENTRY_EXIT_TIME_
+		FROM
+			R_USER_ENTRY_EXIT_HIS
+		WHERE COMPANY_ = #{companyUid}
+			AND PROJ_UID_ = #{projUid}
+			AND TEAM_UID_ = #{teamUid}
+			AND ENTRY_EXIT_FLAG_ = #{entryExitFlag}
+		GROUP BY
+			PROJ_UID_,
+			TEAM_UID_,
+			WORKER_UID_,
+			ENTRY_EXIT_FLAG_
+	) B ON (
+		A.PROJ_UID_ = B.PROJ_UID_
+		AND A.TEAM_UID_ = B.TEAM_UID_
+		AND A.WORKER_UID_ = B.WORKER_UID_
+	)
+	</select>
+
+    <!--获取班组人员信息(班组成员ID_)-->
+    <select id="getProjectWorkerListByIds" resultType="java.util.HashMap">
+		SELECT * FROM R_PROJECT_WORKER WHERE ID_ IN
+			<foreach collection="idList" item="id" open="(" close=")" separator="," >
+				#{id}
+			</foreach>
+	</select>
+
+    <!--更新班组人员，进退场状态，时间-->
+    <update id="updateProjectWorker">
+        UPDATE R_PROJECT_WORKER
+        SET ENTRY_STATUS_ = #{entryExitFlag},
+		<if test='entryExitFlag == "1" '>
+            ENTRY_TIME_ = #{entryExitTime}
+        </if>
+		<if test='entryExitFlag == "2" '>
+            EXIT_TIME_ = #{entryExitTime}
+        </if>
+        WHERE ID_ IN
+		<foreach collection="idList" item="id" open="(" close=")" separator="," >
+			#{id}
+		</foreach>
+    </update>
+
+    <!--记录人员进退场履历信息-->
+    <insert id="insertEntryExitHisBatch" parameterType="java.util.List">
+        insert into R_USER_ENTRY_EXIT_HIS (ID_,PROJ_UID_,
+        TEAM_UID_,WORKER_UID_,ENTRY_EXIT_FLAG_,ENTRY_EXIT_TIME_,CREATE_USER_,CREATE_TIME_,COMPANY_)
+        values
+        <foreach collection="dataList" item="item" index="index" separator=",">
+            (#{item.id,jdbcType=VARCHAR},#{item.projUid,jdbcType=VARCHAR}, #{item.teamUid,jdbcType=VARCHAR},
+            #{item.workerUid,jdbcType=VARCHAR},#{item.entryExitFlag,jdbcType=VARCHAR},#{item.entryExitTime,jdbcType=TIMESTAMP},#{item.createUser,jdbcType=VARCHAR},#{item.createTime,jdbcType=TIMESTAMP},#{item.company,jdbcType=VARCHAR})
+        </foreach>
+    </insert>
+</mapper>

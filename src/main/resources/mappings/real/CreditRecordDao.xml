@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.CreditRecordDao">
+
+    <!--获取征信记录列表-->
+    <select id="getCreditRecodeList" resultType="java.util.HashMap">
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+                ROW_NUMBER () OVER ( ORDER BY A.CREATE_TIME_ DESC ) AS Rownumver,
+                B.ID_ AS creditRecordUid,
+                A.ID_ AS workerUid,
+                A.NAME_ AS name,
+                A.CELLPHONE_ AS cellphone,
+                A.IDCARD_NUMBER_ AS idcardNumber,
+                A.WORK_TYPE_CODE_ AS workTypeCode,
+                B.BLACKLIST_REASONS_ AS blacklistReasons,
+                B.CREDIT_DATE_ AS creditDate,
+                A.CREATE_TIME_
+            FROM
+                R_PROJECT_WORKER C
+                LEFT JOIN R_WORKER_INFO A ON (C.WORKER_UID_ = A.ID_)
+                LEFT JOIN R_CREDIT_RECORD B ON ( A.ID_ = B.WORKER_UID_ AND B.COMPANY_ = #{companyUid} AND B.PROJ_UID_ = #{projUid} AND B.CREDIT_TYPE_ = #{creditType} )
+                <if test="creditType==2">
+                    WHERE C.COMPANY_ = #{companyUid} AND C.PROJ_UID_ = #{projUid} AND B.CREDIT_TYPE_ = #{creditType}
+                </if>
+                <if test="creditType==1">
+                    WHERE C.COMPANY_ = #{companyUid} AND C.PROJ_UID_ = #{projUid} AND (B.CREDIT_TYPE_ = #{creditType} OR B.CREDIT_TYPE_ IS NULL)
+                </if>
+            ) data
+        WHERE
+            (data.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+        ORDER BY
+            data.CREATE_TIME_ DESC;
+    </select>
+    
+    
+    <!--获取征信记录列表(MySql)-->
+    <select id="getCreditRecodeListMySql" resultType="java.util.HashMap">
+        SELECT
+            *
+        FROM
+            (
+            SELECT
+                B.ID_ AS creditRecordUid,
+                A.ID_ AS workerUid,
+                A.NAME_ AS name,
+                A.CELLPHONE_ AS cellphone,
+                A.IDCARD_NUMBER_ AS idcardNumber,
+                A.WORK_TYPE_CODE_ AS workTypeCode,
+                B.BLACKLIST_REASONS_ AS blacklistReasons,
+                B.CREDIT_DATE_ AS creditDate,
+                A.CREATE_TIME_
+            FROM
+                R_PROJECT_WORKER C
+                LEFT JOIN R_WORKER_INFO A ON (C.WORKER_UID_ = A.ID_)
+                LEFT JOIN R_CREDIT_RECORD B ON ( A.ID_ = B.WORKER_UID_ AND B.COMPANY_ = #{companyUid} AND B.PROJ_UID_ = #{projUid} AND B.CREDIT_TYPE_ = #{creditType}  )
+                <if test="creditType==2">
+                    WHERE C.COMPANY_ = #{companyUid} AND C.PROJ_UID_ = #{projUid} AND B.CREDIT_TYPE_ = #{creditType}
+                </if>
+                <if test="creditType==1">
+                    WHERE C.COMPANY_ = #{companyUid} AND C.PROJ_UID_ = #{projUid} AND (B.CREDIT_TYPE_ = #{creditType} OR B.CREDIT_TYPE_ IS NULL)
+                </if>
+            ) data
+        ORDER BY
+            data.CREATE_TIME_ DESC LIMIT #{startIndex}, #{endIndex}
+    </select>
+
+    <!--获取征信记录列表(总数)-->
+    <select id="getCreditRecodeTotalCount" resultType="int">
+		SELECT COUNT(DATA_.ID_)
+	FROM
+		(
+			SELECT
+                A.ID_,
+                A.NAME_,
+                A.CELLPHONE_,
+                A.IDCARD_NUMBER_,
+                A.WORK_TYPE_CODE_,
+                B.BLACKLIST_REASONS_,
+                A.CREATE_TIME_
+            FROM
+                R_PROJECT_WORKER C
+                LEFT JOIN R_WORKER_INFO A ON (C.WORKER_UID_ = A.ID_)
+                LEFT JOIN R_CREDIT_RECORD B ON ( A.ID_ = B.WORKER_UID_ AND B.COMPANY_ = #{companyUid} AND B.PROJ_UID_ = #{projUid} AND B.CREDIT_TYPE_ = #{creditType} )
+                WHERE C.COMPANY_ = #{companyUid} AND C.PROJ_UID_ = #{projUid}
+		) DATA_
+	</select>
+</mapper>

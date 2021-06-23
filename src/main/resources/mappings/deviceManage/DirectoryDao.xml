@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.deviceManage.directory.dao.DirectoryDao">
+
+    <!--获取目录-->
+    <select id="getDirectoryList" resultMap="getDirectoryListMap">
+            SELECT  D_D.ID_,
+                D_D.PARENT_UID_,        
+                D_D.DIRECTORY_NAME_ ,   
+                D_D.SORT_,        
+				<if test="dbType == 'mysql'">
+					DATE_FORMAT(D_D.CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+                	DATE_FORMAT(D_D.UPDATE_TIME_, '%Y-%m-%d %H:%i') updateTime	
+				</if>
+				<if test="dbType == 'mssql'">
+					convert(varchar(16), D_D.CREATE_TIME_,120) createTime,
+                	convert(varchar(16), D_D.UPDATE_TIME_,120) updateTime
+				</if>
+                
+            FROM
+                  DM_DEVICE_DIRECTORY D_D
+            WHERE  D_D.PROJ_UID_=#{ projUid }
+            <if test="parentId != 'root'">
+                AND D_D.PARENT_UID_ = #{ parentId }
+            </if>
+            <if test="parentId == 'root'">
+                AND D_D.PARENT_UID_ = 'root'
+            </if>
+            ORDER BY D_D.SORT_ ASC
+	</select>
+
+    <resultMap type="java.util.HashMap" id="getDirectoryListMap">
+        <id property="id" column="ID_"/>
+        <result property="parentUid" column="PARENT_UID_"/>
+        <result property="directoryName" column="DIRECTORY_NAME_"/>
+        <result property="label" column="DIRECTORY_NAME_"/>
+        <result property="sort" column="SORT_"/>
+        <result property="createTime" column="CREATE_TIME_"/>
+        <result property="updateTime" column="UPDATE_TIME_"/>
+    </resultMap>
+
+    <!--获取目录id-->
+    <select id="getDirectoryIdList" resultType="string">
+        SELECT  D_D.PARENT_UID_
+        FROM
+        DM_DEVICE_DIRECTORY D_D
+        WHERE  D_D.PROJ_UID_=#{ projUid }
+        AND D_D.PARENT_UID_ != 'root'
+        <!--<if test="parentId == null">-->
+        <!--AND D_D.PARENT_UID_ IS NULL-->
+        <!--</if>-->
+        ORDER BY D_D.SORT_ ASC
+    </select>
+
+    <!--获取目录中最大-->
+    <select id="sortId" resultType="java.lang.Double">
+        SELECT 
+        D_D.SORT_       
+        FROM
+        DM_DEVICE_DIRECTORY D_D
+        WHERE  D_D.PROJ_UID_=#{projUid}
+        <if test="parentId != 'root'">
+            AND D_D.PARENT_UID_ = #{parentId}
+        </if>
+        <if test="parentId == 'root'">
+            AND D_D.PARENT_UID_ = 'root'
+        </if>
+        ORDER BY D_D.SORT_ DESC LIMIT 1
+    </select>
+
+
+
+
+
+</mapper>

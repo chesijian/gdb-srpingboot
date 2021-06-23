@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.SalaryDateilDao">
+
+    <!--插入工资明细信息-->
+    <insert id="importSalaryDetail" parameterType="java.util.List">
+        INSERT INTO R_SALARY_DATEIL ( ID_, SALARY_UID_, WORKER_NAME_, IDCARD_NUMBER_, ATTENDANCE_DAYS_NUM_,
+        TOTAL_WORKING_HOURS_,AMOUNT_PAYABLE_,ACTUAL_AMOUNT_,WHETHER_TO_REISSUE_,DATE_OF_ISSUE_,TEAM_NAME_,
+        CREATE_USER_,CREATE_TIME_,UPDATE_USER_,UPDATE_TIME_,SUB_COMPANY_,COMPANY_
+        )
+        VALUES
+        <foreach collection="dataList" item="item" index="index" separator=",">
+            (
+            #{item.id,jdbcType = VARCHAR},
+            #{item.salaryUid,jdbcType = VARCHAR},
+            #{item.workerName,jdbcType = VARCHAR},
+            #{item.idcardNumber,jdbcType = VARCHAR},
+            #{item.attendanceDaysNum,jdbcType = VARCHAR},
+            #{item.totalWorkingHours,jdbcType = VARCHAR},
+            #{item.amountPayable,jdbcType = FLOAT},
+            #{item.actualAmount,jdbcType = FLOAT},
+            #{item.whetherToReissue,jdbcType = VARCHAR},
+            #{item.dateOfIssue,jdbcType = VARCHAR},
+            #{item.teamName,jdbcType = VARCHAR},
+            #{item.createUser,jdbcType = VARCHAR },
+            #{item.createTime,jdbcType = TIMESTAMP},
+            #{item.updateUser,jdbcType = VARCHAR},
+            #{item.updateTime,jdbcType = TIMESTAMP},
+            #{item.subCompany,jdbcType = VARCHAR},
+            #{item.company,jdbcType = VARCHAR}
+            )
+        </foreach>
+    </insert>
+
+    <delete id="deleteDuplicateData">
+        DELETE
+        FROM
+            R_SALARY_DATEIL
+        WHERE
+            COMPANY_ = #{companyUid}
+            AND SALARY_UID_ = #{salaryUid}
+            AND ID_ NOT IN (
+            SELECT
+                data_.ID_
+            FROM
+                (
+                SELECT
+                    *,
+                    ROW_NUMBER () OVER ( partition BY SALARY_UID_, WORKER_NAME_, IDCARD_NUMBER_ ORDER BY CREATE_TIME_ DESC ) AS rownum
+                FROM
+                    R_SALARY_DATEIL
+                WHERE
+                    COMPANY_ = #{companyUid}
+                    AND SALARY_UID_ = #{salaryUid}
+                ) data_
+            WHERE
+                data_.rownum = 1
+            )
+    </delete>
+    
+    
+    <!--获取薪资详细信息列表-->
+    <select id="getSalaryDetailList" resultType="java.util.HashMap">
+        SELECT *
+		FROM
+		(
+        SELECT
+            ROW_NUMBER () OVER (ORDER BY B.CREATE_TIME_ DESC) AS Rownumver,
+            B.WORKER_NAME_ AS workerName,
+            B.IDCARD_NUMBER_ AS idcardNumber,
+            B.ATTENDANCE_DAYS_NUM_ AS attendanceDaysNum,
+            B.TOTAL_WORKING_HOURS_ AS totalWorkingHours,
+            B.AMOUNT_PAYABLE_ AS amountPayable,
+            B.ACTUAL_AMOUNT_ AS actualAmount,
+            B.WHETHER_TO_REISSUE_ AS whetherToReissue,
+            B.DATE_OF_ISSUE_ AS dateOfIssue,
+            B.TEAM_NAME_ AS teamName,
+            B.CREATE_TIME_,
+            A.PAYROLL_CODE_ AS payrollCode
+        FROM
+            R_SALARY A
+            LEFT JOIN R_SALARY_DATEIL B ON ( A.ID_ = B.SALARY_UID_ )
+        WHERE
+            A.COMPANY_ = #{companyUid}
+            AND A.ID_ = #{salaryUid}
+        ) data_
+		WHERE
+			(data_.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+		ORDER BY
+			data_.CREATE_TIME_ DESC;
+    </select>
+    
+    
+    <!--获取薪资详细信息列表(MySql)-->
+    <select id="getSalaryDetailListMySql" resultType="java.util.HashMap">
+        SELECT *
+		FROM
+		(
+        SELECT
+            B.WORKER_NAME_ AS workerName,
+            B.IDCARD_NUMBER_ AS idcardNumber,
+            B.ATTENDANCE_DAYS_NUM_ AS attendanceDaysNum,
+            B.TOTAL_WORKING_HOURS_ AS totalWorkingHours,
+            B.AMOUNT_PAYABLE_ AS amountPayable,
+            B.ACTUAL_AMOUNT_ AS actualAmount,
+            B.WHETHER_TO_REISSUE_ AS whetherToReissue,
+            B.DATE_OF_ISSUE_ AS dateOfIssue,
+            B.CREATE_TIME_,
+            A.PAYROLL_CODE_ AS payrollCode
+        FROM
+            R_SALARY A
+            LEFT JOIN R_SALARY_DATEIL B ON ( A.ID_ = B.SALARY_UID_ )
+        WHERE
+            A.COMPANY_ = #{companyUid}
+            AND A.ID_ = #{salaryUid}
+        ) data_
+		ORDER BY
+			data_.CREATE_TIME_ DESC LIMIT #{startIndex}, #{endIndex}
+    </select>
+
+    <!--获取薪资详细信息列表(总数)-->
+    <select id="getSalaryDetailTotalCount" resultType="int">
+        SELECT
+            COUNT(B.WORKER_NAME_)
+        FROM
+            R_SALARY A
+            LEFT JOIN R_SALARY_DATEIL B ON ( A.ID_ = B.SALARY_UID_ )
+        WHERE
+            A.COMPANY_ = #{companyUid}
+            AND A.ID_ = #{salaryUid}
+    </select>
+
+    <!--获取薪资详细信息列表（导出）-->
+    <select id="getExportSalaryDetailList" resultType="java.util.HashMap">
+        SELECT
+            B.WORKER_NAME_,
+            B.IDCARD_NUMBER_,
+            B.ATTENDANCE_DAYS_NUM_,
+            B.TOTAL_WORKING_HOURS_,
+            B.AMOUNT_PAYABLE_,
+            B.ACTUAL_AMOUNT_,
+            B.WHETHER_TO_REISSUE_,
+            B.DATE_OF_ISSUE_,
+            A.PAYROLL_CODE_
+        FROM
+            R_SALARY A
+            LEFT JOIN R_SALARY_DATEIL B ON ( A.ID_ = B.SALARY_UID_ )
+        WHERE
+            A.COMPANY_ = #{companyUid}
+            AND A.ID_ = #{salaryUid}
+        ORDER BY
+            B.CREATE_TIME_ DESC
+    </select>
+    
+    
+    <!-- 检验insert数据是否重复 -->
+    <select id="checkRepetitionData" resultType="Integer">
+    	select count(id_) from R_SALARY_DATEIL where SALARY_UID_ = #{salaryUid} and WORKER_NAME_ = #{name} and IDCARD_NUMBER_ = #{identity}
+    </select>
+    
+</mapper>

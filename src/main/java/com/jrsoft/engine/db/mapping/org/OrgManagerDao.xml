@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jrsoft.engine.dao.OrgManagerDao">
+
+  <!--根据id查询部门-->
+  <select id="findDepartById" resultType="OrgDepart">
+    select id_ id,depart_name_ departName,DEPART_ID_ as departId,DEPART_TYPE_ departType,SORT_ sort,PARENT_ID_ parentId
+    from org_depart where id_=#{departUid}
+  </select>
+
+  <!--查询下级部门-->
+  <select id="findDepartByParentId" resultType="OrgDepart">
+    select id_ id,depart_name_ departName,DEPART_ID_ as departId,DEPART_TYPE_ departType,SORT_ sort,PARENT_ID_ parentId
+    from org_depart where PARENT_ID_=#{parentUid}
+
+  </select>
+
+  <!--查询用户总数-->
+  <select id="queryUserTotalCount"  resultType="long">
+    select count(1) from ORG_USER u left join org_position_user pu on u.id_= pu.USER_UID_ left join org_depart d on d.id_=pu.DEPART_UID_
+    where u.COMPANY_ = #{companyUid,jdbcType=VARCHAR} and pu.DEPART_UID_ =#{departUid}
+  </select>
+
+  <!--根据部门id查询组织架构用户-->
+  <select id="getUserList"  resultType="com.jrsoft.engine.model.org.OrgUser">
+    select u.ID_ id,u.EN_CODE_,u.USER_NAME_ userName,u.MOBILE_NO_ mobileNo,u.PICTURE_ picture,u.EMP_STATUS_,u.GENDER_ gender,u.USER_ID_ userId,u.COMPANY_ company
+    from ORG_USER u left join org_position_user pu on u.id_= pu.USER_UID_ left join org_depart d on d.id_=pu.DEPART_UID_
+    where u.COMPANY_ = #{companyUid,jdbcType=VARCHAR} and pu.DEPART_UID_ =#{departUid}
+    order by u.EN_CODE_ limit #{start},#{pageSize}
+  </select>
+
+  <select id="queryUserPositionById" resultType="OrgPosition">
+    select ID_ id,POSITION_NAME_ positionName from org_position p left join org_position_user pu on p.id_=pu.POSITION_UID_
+    where pu.USER_UID_ =#{userUid}
+  </select>
+
+  <!--查询菜单-->
+  <select id="findMenusByParentId" resultType="PfMenu">
+    SELECT ID_ id,CODE_ code,TITLE_ title,TYPE_ type,ENABLE_ enable,FORM_KEY_ formKey,PARENT_ID_ parentId  FROM PF_MENU RES
+  </select>
+
+</mapper>

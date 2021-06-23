@@ -1,0 +1,1050 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.HomePageDao">
+
+    <!--统计出勤人员数量-->
+    <select id="getInOutWorkerAttendanceTotalCountOld" resultType="java.util.HashMap">
+		SELECT
+			'tIn' AS 'TYPE_',
+			COUNT ( T_IN.WORKER_UID_ ) AS COUNT_
+		FROM
+			(
+			SELECT DISTINCT
+				WORKER_UID_
+			FROM
+				R_WORKER_ATTENDANCE
+			WHERE
+				COMPANY_ = #{companyUid}
+				AND PROJ_UID_ = #{projUid}
+				AND DIRECTION_ = '1'
+				AND datediff(
+					dd,
+					date_,
+				getdate()) = 0
+				GROUP BY WORKER_UID_
+			) T_IN UNION
+		SELECT
+			'tOut' as 'TYPE_',
+			COUNT ( T_OUT.WORKER_UID_ ) AS COUNT_
+		FROM
+			(
+			SELECT DISTINCT
+				WORKER_UID_
+			FROM
+				R_WORKER_ATTENDANCE
+			WHERE
+				COMPANY_ = #{companyUid}
+				AND PROJ_UID_ = #{projUid}
+				AND DIRECTION_ = '0'
+				AND datediff(
+					dd,
+					date_,
+				getdate()) = 0
+				GROUP BY WORKER_UID_
+			) T_OUT UNION
+		SELECT
+			'yIn' as 'TYPE_',
+			COUNT ( Y_IN.WORKER_UID_ ) AS COUNT_
+		FROM
+			(
+			SELECT DISTINCT
+				WORKER_UID_
+			FROM
+				R_WORKER_ATTENDANCE
+			WHERE
+				COMPANY_ = #{companyUid}
+				AND PROJ_UID_ = #{projUid}
+				AND DIRECTION_ = '1'
+				AND datediff(
+					dd,
+					date_,
+				getdate()) = 1
+				GROUP BY WORKER_UID_
+			) Y_IN UNION
+		SELECT
+			'yOut' as 'TYPE_',
+			COUNT ( Y_OUT.WORKER_UID_ ) AS COUNT_
+		FROM
+			(
+			SELECT DISTINCT
+				WORKER_UID_
+			FROM
+				R_WORKER_ATTENDANCE
+			WHERE
+				COMPANY_ = #{companyUid}
+				AND PROJ_UID_ = #{projUid}
+				AND DIRECTION_ = '0'
+				AND datediff(
+					dd,
+					date_,
+				getdate()) = 1
+				GROUP BY WORKER_UID_
+			) Y_OUT
+	</select>
+
+	<!--统计出勤人员数量-->
+	<select id="getInOutWorkerAttendanceTotalCount" resultType="java.util.HashMap">
+		SELECT
+			'tIn' AS 'TYPE_',
+			SUM ( A.IN_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 0
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 0
+				GROUP BY
+					WORKER_UID_
+				) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) A UNION
+		SELECT
+			'tOut' AS 'TYPE_',
+			SUM ( B.OUT_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 0
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 0
+				GROUP BY
+					WORKER_UID_
+				) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) B UNION
+		SELECT
+			'yIn' AS 'TYPE_',
+			SUM ( C.IN_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 1
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 1
+				GROUP BY
+					WORKER_UID_
+				) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) C UNION
+		SELECT
+			'yOut' AS 'TYPE_',
+			SUM ( D.OUT_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 1
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT ( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 1
+				GROUP BY
+				WORKER_UID_
+			) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) D
+	</select>
+	
+	
+	<!--统计出勤人员数量(MySql)-->
+	<select id="getInOutWorkerAttendanceTotalCountMySql" resultType="java.util.HashMap">
+		SELECT
+			'tIn' AS 'TYPE_',
+			SUM( A.IN_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				ifnull(OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0) >= ifnull(OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN ifnull(IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0) > ifnull(OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT(WORKER_UID_) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT(WORKER_UID_) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+				GROUP BY
+					WORKER_UID_
+				)OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) A UNION
+		SELECT
+			'tOut' AS 'TYPE_',
+			SUM( B.OUT_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				ifnull(OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_, 0) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT(WORKER_UID_) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+				GROUP BY
+					WORKER_UID_
+				) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) B UNION
+		SELECT
+			'yIn' AS 'TYPE_',
+			SUM( C.IN_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 1
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 1
+				GROUP BY
+					WORKER_UID_
+				) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) C UNION
+		SELECT
+			'yOut' AS 'TYPE_',
+			SUM( D.OUT_COUNT_ ) AS COUNT_
+		FROM
+			(
+			SELECT
+				IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+				ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+				OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+				ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					1
+				END AS IN_COUNT_,
+			CASE
+
+					WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+					0 ELSE 1
+				END AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					WORKER_UID_,
+					COUNT( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 1
+				GROUP BY
+					WORKER_UID_
+				) IN_WORKER_INFO_
+				LEFT JOIN (
+				SELECT
+					WORKER_UID_,
+					COUNT( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND TIMESTAMPDIFF(DAY, date_, now()) = 1
+				GROUP BY
+				WORKER_UID_
+			) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) D
+	</select>
+	
+
+    <!--统计当前项目施工人数-->
+    <select id="getProjectWorkerCountByProjUid" resultType="int">
+		SELECT COUNT(WORKER_UID_) AS WORKER_COUNT_
+		FROM
+			R_PROJECT_WORKER
+		WHERE
+			COMPANY_ = #{companyUid}
+			AND PROJ_UID_ = #{projUid}
+	</select>
+
+    <!--获取考勤人员信息-->
+    <select id="getWorkerAttendanceByProjUid" resultType="java.util.HashMap">
+		SELECT
+			A.ID_ AS id,
+			A.WORKER_UID_ AS workerUid,
+			A.DIRECTION_ AS direction,
+			A.DATE_,
+			A.TIME_ AS time,
+			B.NAME_ AS name,
+			B.WORK_TYPE_CODE_ AS workTypeCode
+		FROM
+			(
+			SELECT
+				ID_,
+				WORKER_UID_,
+				DIRECTION_,
+				DATE_,
+				CONVERT ( VARCHAR ( 100 ), DATE_, 24 ) AS TIME_
+			FROM
+				(
+				SELECT
+					*,
+					ROW_NUMBER () OVER ( partition BY WORKER_UID_ ORDER BY DATE_ ASC ) AS rownum
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 0
+				) t
+			WHERE
+				rownum = 1 UNION
+			SELECT
+				ID_,
+				WORKER_UID_,
+				DIRECTION_,
+				DATE_,
+				CONVERT ( VARCHAR ( 100 ), DATE_, 24 ) AS TIME_
+			FROM
+				(
+				SELECT
+					*,
+					ROW_NUMBER () OVER ( partition BY WORKER_UID_ ORDER BY DATE_ DESC ) AS rownum
+				FROM
+					R_WORKER_ATTENDANCE
+				WHERE
+					COMPANY_ = #{companyUid}
+					AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '0'
+					AND datediff(
+						dd,
+						date_,
+					getdate()) = 0
+				) t
+			WHERE
+				rownum = 1
+			) A
+			LEFT JOIN R_WORKER_INFO B ON (
+			A.WORKER_UID_ = B.ID_ ) ORDER BY A.DATE_ DESC
+	</select>
+	
+	
+	<!--获取考勤人员信息-->
+    <select id="getWorkerAttendanceByProjUidMySql" resultType="java.util.HashMap">
+		SELECT
+			A.ID_ AS id,
+			A.WORKER_UID_ AS workerUid,
+			A.DIRECTION_ AS direction,
+			A.DATE_,
+			A.TIME_ AS time,
+			B.NAME_ AS name,
+			B.WORK_TYPE_CODE_ AS workTypeCode
+		FROM
+		(SELECT ID_,WORKER_UID_,DIRECTION_,DATE_,DATE_FORMAT(DATE_, '%H:%i:%s') AS TIME_
+			FROM (SELECT *
+				FROM	R_WORKER_ATTENDANCE
+				WHERE	COMPANY_ = #{companyUid} AND PROJ_UID_ = #{projUid}
+					AND DIRECTION_ = '1'	AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+				) t
+			) A
+			LEFT JOIN R_WORKER_INFO B ON A.WORKER_UID_ = B.ID_  ORDER BY A.DATE_ DESC
+
+	</select>
+	
+	
+
+    <!--获取人员分析数据-->
+    <select id="getPersonnelAnalysisByProjUidOld" resultType="java.util.HashMap">
+		SELECT
+            F.WORK_TYPE_CODE_ AS workTypeCode,
+            isnull( F.IN_COUNT_ , 0 ) AS inCount,
+            isnull( F.OUT_COUNT_ , 0 ) AS outCount,
+            (
+            isnull( F.IN_COUNT_ , 0 ) - isnull( F.OUT_COUNT_ , 0 )) AS onCount,
+            G.TOTAL_COUNT_ AS totalCount
+        FROM
+            (
+            SELECT
+			D.WORK_TYPE_CODE_,
+			D.IN_COUNT_,
+			E.OUT_COUNT_
+		FROM
+			(
+			SELECT
+				C.WORK_TYPE_CODE_,
+				COUNT ( C.WORKER_UID_ ) AS IN_COUNT_
+			FROM
+				(
+				SELECT
+					A.WORKER_UID_,
+					B.ID_,
+					B.WORK_TYPE_CODE_
+				FROM
+					(
+					SELECT
+						WORKER_UID_
+					FROM
+						R_WORKER_ATTENDANCE A
+					WHERE
+						COMPANY_ = #{companyUid}
+						AND PROJ_UID_ = #{projUid}
+						AND DIRECTION_ = '1'
+						AND datediff(
+							dd,
+							date_,
+						getdate()) = 0
+					GROUP BY
+						WORKER_UID_
+					) A
+				LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )) C
+			GROUP BY
+				C.WORK_TYPE_CODE_
+			) D
+			LEFT JOIN (
+			SELECT
+				C.WORK_TYPE_CODE_,
+				COUNT ( C.WORKER_UID_ ) AS OUT_COUNT_
+			FROM
+				(
+				SELECT
+					A.WORKER_UID_,
+					B.ID_,
+					B.WORK_TYPE_CODE_
+				FROM
+					(
+					SELECT
+						WORKER_UID_
+					FROM
+						R_WORKER_ATTENDANCE A
+					WHERE
+						COMPANY_ = #{companyUid}
+						AND PROJ_UID_ = #{projUid}
+						AND DIRECTION_ = '0'
+						AND datediff(
+							dd,
+							date_,
+						getdate()) = 0
+					GROUP BY
+						WORKER_UID_
+					) A
+				LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )) C
+			GROUP BY
+				C.WORK_TYPE_CODE_
+			) E ON ( D.WORK_TYPE_CODE_ = E.WORK_TYPE_CODE_ )) F
+            LEFT JOIN (
+            SELECT
+                B.WORK_TYPE_CODE_,
+                COUNT ( B.WORK_TYPE_CODE_ ) AS TOTAL_COUNT_
+            FROM
+                R_PROJECT_WORKER A
+                LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+            WHERE
+                A.COMPANY_ = #{companyUid}
+                AND A.PROJ_UID_ = #{projUid}
+            GROUP BY
+                B.WORK_TYPE_CODE_
+            ) G ON (
+            F.WORK_TYPE_CODE_ = G.WORK_TYPE_CODE_)
+	</select>
+
+	<!--获取人员分析数据-->
+	<select id="getPersonnelAnalysisByProjUid" resultType="java.util.HashMap">
+		SELECT
+			I.WORK_TYPE_CODE_ AS workTypeCode,
+			isnull( I.IN_COUNT_ , 0 ) AS inCount,
+			isnull( I.OUT_COUNT_ , 0 ) AS outCount,
+			(
+			isnull( I.IN_COUNT_ , 0 ) - isnull( I.OUT_COUNT_ , 0 )) AS onCount,
+			J.TOTAL_COUNT_ AS totalCount
+		FROM
+			(
+			SELECT
+				L.WORK_TYPE_CODE_,
+				L.IN_COUNT_,
+				H.OUT_COUNT_
+			FROM
+				(
+				SELECT
+					G.WORK_TYPE_CODE_,
+					SUM( G.IN_COUNT_ ) AS IN_COUNT_
+				FROM
+					(
+					SELECT
+						C.*,
+						D.WORK_TYPE_CODE_
+					FROM
+						(
+						SELECT
+							A.IN_WORKER_UID_ AS WORKER_UID_,
+							SUM( A.IN_COUNT_ ) AS IN_COUNT_
+						FROM
+							(
+							SELECT
+								IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+								isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+								OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+								isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+							CASE
+
+									WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									1
+								END AS IN_COUNT_,
+							CASE
+
+									WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									0 ELSE 1
+								END AS OUT_COUNT_
+							FROM
+								(
+								SELECT
+									WORKER_UID_,
+									COUNT ( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '1'
+									AND datediff(
+										dd,
+										date_,
+									getdate()) = 0
+								GROUP BY
+									WORKER_UID_
+								) IN_WORKER_INFO_
+								LEFT JOIN (
+								SELECT
+									WORKER_UID_,
+									COUNT ( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '0'
+									AND datediff(
+										dd,
+										date_,
+									getdate()) = 0
+								GROUP BY
+									WORKER_UID_
+								) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) A
+						GROUP BY
+							A.IN_WORKER_UID_
+						) C
+					LEFT JOIN R_WORKER_INFO D ON ( C.WORKER_UID_ = D.ID_ )) G
+				GROUP BY
+					G.WORK_TYPE_CODE_
+				) L
+				LEFT JOIN (
+				SELECT
+					K.WORK_TYPE_CODE_,
+					SUM( K.OUT_COUNT_ ) AS OUT_COUNT_
+				FROM
+					(
+					SELECT
+						E.*,
+						F.WORK_TYPE_CODE_
+					FROM
+						(
+						SELECT
+							B.IN_WORKER_UID_ AS WORKER_UID_,
+							SUM( B.OUT_COUNT_ ) AS OUT_COUNT_
+						FROM
+							(
+							SELECT
+								IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+								isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+								OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+								isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+							CASE
+
+									WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									1
+								END AS IN_COUNT_,
+							CASE
+
+									WHEN isnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > isnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									0 ELSE 1
+								END AS OUT_COUNT_
+							FROM
+								(
+								SELECT
+									WORKER_UID_,
+									COUNT ( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '1'
+									AND datediff(
+										dd,
+										date_,
+									getdate()) = 0
+								GROUP BY
+									WORKER_UID_
+								) IN_WORKER_INFO_
+								LEFT JOIN (
+								SELECT
+									WORKER_UID_,
+									COUNT ( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '0'
+									AND datediff(
+										dd,
+										date_,
+									getdate()) = 0
+								GROUP BY
+									WORKER_UID_
+								) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) B
+						GROUP BY
+							B.IN_WORKER_UID_
+						) E
+					LEFT JOIN R_WORKER_INFO F ON ( E.WORKER_UID_ = F.ID_ )) K
+				GROUP BY
+					K.WORK_TYPE_CODE_
+				) H ON ( L.WORK_TYPE_CODE_ = H.WORK_TYPE_CODE_ )) I
+			LEFT JOIN (
+			SELECT
+				B.WORK_TYPE_CODE_,
+				COUNT ( B.WORK_TYPE_CODE_ ) AS TOTAL_COUNT_
+			FROM
+				R_PROJECT_WORKER A
+				LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+			WHERE
+				A.COMPANY_ = #{companyUid}
+				AND A.PROJ_UID_ = #{projUid}
+			GROUP BY
+				B.WORK_TYPE_CODE_
+			) J ON (
+			I.WORK_TYPE_CODE_ = J.WORK_TYPE_CODE_)
+	</select>
+	
+	
+	<!--获取人员分析数据(MySql)-->
+	<select id="getPersonnelAnalysisByProjUidMySql" resultType="java.util.HashMap">
+		SELECT
+			I.WORK_TYPE_CODE_ AS workTypeCode,
+			ifnull( I.IN_COUNT_ , 0 ) AS inCount,
+			ifnull( I.OUT_COUNT_ , 0 ) AS outCount,
+			(
+			ifnull( I.IN_COUNT_ , 0 ) - ifnull( I.OUT_COUNT_ , 0 )) AS onCount,
+			J.TOTAL_COUNT_ AS totalCount
+		FROM
+			(
+			SELECT
+				L.WORK_TYPE_CODE_,
+				L.IN_COUNT_,
+				H.OUT_COUNT_
+			FROM
+				(
+				SELECT
+					G.WORK_TYPE_CODE_,
+					SUM( G.IN_COUNT_ ) AS IN_COUNT_
+				FROM
+					(
+					SELECT
+						C.*,
+						D.WORK_TYPE_CODE_
+					FROM
+						(
+						SELECT
+							A.IN_WORKER_UID_ AS WORKER_UID_,
+							SUM( A.IN_COUNT_ ) AS IN_COUNT_
+						FROM
+							(
+							SELECT
+								IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+								ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+								OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+								ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+							CASE
+
+									WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									1
+								END AS IN_COUNT_,
+							CASE
+
+									WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									0 ELSE 1
+								END AS OUT_COUNT_
+							FROM
+								(
+								SELECT
+									WORKER_UID_,
+									COUNT( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '1'
+									AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+								GROUP BY
+									WORKER_UID_
+								) IN_WORKER_INFO_
+								LEFT JOIN (
+								SELECT
+									WORKER_UID_,
+									COUNT( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '0'
+									AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+								GROUP BY
+									WORKER_UID_
+								) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) A
+						GROUP BY
+							A.IN_WORKER_UID_
+						) C
+					LEFT JOIN R_WORKER_INFO D ON ( C.WORKER_UID_ = D.ID_ )) G
+				GROUP BY
+					G.WORK_TYPE_CODE_
+				) L
+				LEFT JOIN (
+				SELECT
+					K.WORK_TYPE_CODE_,
+					SUM( K.OUT_COUNT_ ) AS OUT_COUNT_
+				FROM
+					(
+					SELECT
+						E.*,
+						F.WORK_TYPE_CODE_
+					FROM
+						(
+						SELECT
+							B.IN_WORKER_UID_ AS WORKER_UID_,
+							SUM( B.OUT_COUNT_ ) AS OUT_COUNT_
+						FROM
+							(
+							SELECT
+								IN_WORKER_INFO_.WORKER_UID_ AS IN_WORKER_UID_,
+								ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) AS IN_WORKER_UID_COUNT_,
+								OUT_WORKER_INFO_.WORKER_UID_ AS OUT_WORKER_UID_,
+								ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) AS OUT_WORKER_UID_COUNT_,
+							CASE
+
+									WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) >= ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									1
+								END AS IN_COUNT_,
+							CASE
+
+									WHEN ifnull( IN_WORKER_INFO_.IN_WORKER_UID_COUNT_ , 0 ) > ifnull( OUT_WORKER_INFO_.OUT_WORKER_UID_COUNT_ , 0 ) THEN
+									0 ELSE 1
+								END AS OUT_COUNT_
+							FROM
+								(
+								SELECT
+									WORKER_UID_,
+									COUNT( WORKER_UID_ ) AS IN_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '1'
+									AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+								GROUP BY
+									WORKER_UID_
+								) IN_WORKER_INFO_
+								LEFT JOIN (
+								SELECT
+									WORKER_UID_,
+									COUNT( WORKER_UID_ ) AS OUT_WORKER_UID_COUNT_
+								FROM
+									R_WORKER_ATTENDANCE
+								WHERE
+									COMPANY_ = #{companyUid}
+									AND PROJ_UID_ = #{projUid}
+									AND DIRECTION_ = '0'
+									AND TIMESTAMPDIFF(DAY, date_, now()) = 0
+								GROUP BY
+									WORKER_UID_
+								) OUT_WORKER_INFO_ ON ( IN_WORKER_INFO_.WORKER_UID_ = OUT_WORKER_INFO_.WORKER_UID_ )) B
+						GROUP BY
+							B.IN_WORKER_UID_
+						) E
+					LEFT JOIN R_WORKER_INFO F ON ( E.WORKER_UID_ = F.ID_ )) K
+				GROUP BY
+					K.WORK_TYPE_CODE_
+				) H ON ( L.WORK_TYPE_CODE_ = H.WORK_TYPE_CODE_ )) I
+			LEFT JOIN (
+			SELECT
+				B.WORK_TYPE_CODE_,
+				COUNT( B.WORK_TYPE_CODE_ ) AS TOTAL_COUNT_
+			FROM
+				R_PROJECT_WORKER A
+				LEFT JOIN R_WORKER_INFO B ON ( A.WORKER_UID_ = B.ID_ )
+			WHERE
+				A.COMPANY_ = #{companyUid}
+				AND A.PROJ_UID_ = #{projUid}
+			GROUP BY
+				B.WORK_TYPE_CODE_
+			) J ON (
+			I.WORK_TYPE_CODE_ = J.WORK_TYPE_CODE_)
+	</select>
+</mapper>

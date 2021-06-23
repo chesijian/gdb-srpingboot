@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.region.dao.CommonDao">
+
+    <resultMap  id="resultAreaMap" type="com.jrsoft.business.modules.region.model.AreaVO">
+        <id property="id" column="ID" />
+        <result property="level" column="LEVEL_" />
+        <result property="code" column="CODE_" />
+        <result property="name" column="NAME_" />
+        <result property="sort" column="SORT_" />
+        <result property="longitude" column="LONGITUDE_" />
+        <result property="latitude" column="LATITUDE_" />
+        <result property="parentId" column="PARENT_ID_" />
+        <result property="ak" column="AK_" />
+    </resultMap>
+
+    <select id="getProvinceList" resultMap="resultAreaMap">
+        SELECT * FROM PF_AREA WHERE parent_id_ = 1  order by ak_
+    </select>
+
+    <select id="getCityByParentId" resultMap="resultAreaMap">
+        SELECT * FROM PF_AREA WHERE parent_id_ = #{parentId}  order by ak_
+    </select>
+
+    <select id="getCountyByParentId" resultMap="resultAreaMap">
+        SELECT * FROM PF_AREA WHERE parent_id_ = #{parentId}  order by ak_
+    </select>
+</mapper>

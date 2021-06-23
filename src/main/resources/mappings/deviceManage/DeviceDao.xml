@@ -1,0 +1,551 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.deviceManage.device.dao.DeviceDao">
+
+    <!--获取设备列表-->
+    <select id="getDeviceListOld" resultMap="getDeviceListMap">
+        DECLARE @pageIndex INT =#{ pageIndex }
+        DECLARE @pageSize INT =#{ pageSize }
+        SELECT TOP (@pageSize) D_D.ID_,
+        (SELECT COUNT (ID_)
+        FROM DM_DEVICE
+        WHERE PROJ_UID_= #{ projUid }
+        <if test="directoryUid != null">
+            AND DIRECTORY_UID_= #{ directoryUid }
+        </if>
+        <if test="status != null">
+            AND STATUS_= #{ status }
+        </if>
+        <if test="search != null">
+            AND NAME_ LIKE '%${ search }%'
+        </if>
+        )AS TOTAL_COUNT_ , -- 总数
+        D_D.NAME_, --设备名称
+        D_D.CODE_ , --设备编号
+        D_D.SPECIFICATION_ , --型号规格
+        D_D.PRODUCE_FACTORY_ , --生产厂家
+        -- D_D.IN_SITE_DATE_ , --进场日期
+        -- D_D.OUT_SITE_DATE_ , --退场日期
+        convert(varchar(16), D_D.IN_SITE_DATE_,23) inSiteDate,
+        convert(varchar(16), D_D.OUT_SITE_DATE_,23) outSiteDate,
+        D_D.PRINCIPAL_UID_ , --负责人UID
+        D_D.PRINCIPAL_ , --负责人姓名
+        D_D.INSTALL_POSITION_ , --安装位置
+        D_D.BRAND_ , --品牌
+        D_D.PRINCIPAL_PHONE_ , --负责人联系电话
+        D_D.ACCEPTANCE_UID_ , --验收人UID
+        D_D.ACCEPTANCE_ , --验收人姓名
+        D_D.ACCEPTANCE_PHONE_ , --验收人联系电话
+        D_D.SITE_ , --是否进场 1是 2否
+        D_D.STATUS_ , --状态 1正常 2异常 3维护
+        D_D.REMARK_ , --备注
+        D_D.ADDRESS_ , --地图选点名称
+        D_D.ADDRESS_LOCATION_ , --地图选点经纬度
+        D_D.PICTURE_ , --附件图片
+        D_D.SORT_, --排序
+        D_D_D.DIRECTORY_NAME_, --目录名称
+        CASE
+        WHEN (SITE_ = 1) THEN  '是'
+        WHEN (SITE_ = 2) THEN  '否'
+        END AS SITE_CN_,
+        CASE
+        WHEN (STATUS_ = 1) THEN  '正常'
+        WHEN (STATUS_ = 2) THEN  '异常'
+        WHEN (STATUS_ = 2) THEN  '维护'
+        END AS STATUS_CN_,
+        -- D_D.CREATE_TIME_, --创建时间
+        -- D_D.UPDATE_TIME_ --更新时间
+        convert(varchar(16), D_D.CREATE_TIME_,120) createTime,
+        convert(varchar(16), D_D.UPDATE_TIME_,120) updateTime
+        FROM
+        DM_DEVICE D_D
+        LEFT JOIN DM_DEVICE_DIRECTORY D_D_D ON D_D_D.ID_ = D_D.DIRECTORY_UID_
+        WHERE
+        D_D.PROJ_UID_= #{ projUid }
+        <if test="directoryUid != null">
+            AND D_D.DIRECTORY_UID_= #{ directoryUid }
+        </if>
+        <if test="status != null">
+            AND D_D.STATUS_= #{ status }
+        </if>
+        <if test="search != null">
+            AND D_D.NAME_ LIKE '%${ search }%'
+        </if>
+        <if test="pageIndex != 1">
+            AND D_D.SORT_>(
+            SELECT
+            MAX(SORT_)
+            FROM (
+            SELECT TOP ( @pageIndex * @pageSize)
+            ID_,
+            SORT_
+            FROM DM_DEVICE
+            WHERE
+            PROJ_UID_= #{ projUid }
+            <if test="directoryUid != null">
+                AND DIRECTORY_UID_= #{ directoryUid }
+            </if>
+            <if test="search != null">
+                AND NAME_ LIKE '%${ search }%'
+            </if>
+            <if test="status != null">
+                AND STATUS_= #{ status }
+            </if>
+            ) VAL)
+        </if>
+        <if test="site != null">
+            AND D_D.SITE_ = #{ site }
+        </if>
+        ORDER BY D_D.SORT_ ASC
+    </select>
+
+    <!--获取设备列表-->
+    <select id="getDeviceList" resultMap="getDeviceListMap">
+        SELECT *
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER (ORDER BY D_D.CREATE_TIME_ ASC) AS Rownumver,
+        D_D.ID_,
+        D_D.NAME_,--设备名称
+        D_D.CODE_ ,--设备编号
+        D_D.SPECIFICATION_ ,--型号规格
+        D_D.PRODUCE_FACTORY_ ,--生产厂家
+        CONVERT ( VARCHAR ( 16 ), D_D.IN_SITE_DATE_, 23 ) inSiteDate,
+        CONVERT ( VARCHAR ( 16 ), D_D.OUT_SITE_DATE_, 23 ) outSiteDate,
+        D_D.PRINCIPAL_UID_ ,--负责人UID
+        D_D.PRINCIPAL_ ,--负责人姓名
+        D_D.INSTALL_POSITION_ ,--安装位置
+        D_D.BRAND_ ,--品牌
+        D_D.PRINCIPAL_PHONE_ ,--负责人联系电话
+        D_D.ACCEPTANCE_UID_ ,--验收人UID
+        D_D.ACCEPTANCE_ ,--验收人姓名
+        D_D.ACCEPTANCE_PHONE_ ,--验收人联系电话
+        D_D.SITE_ ,--是否进场 1是 2否
+        D_D.STATUS_ ,--状态 1正常 2异常 3维护
+        D_D.REMARK_ ,--备注
+        D_D.ADDRESS_ ,--地图选点名称
+        D_D.ADDRESS_LOCATION_ ,--地图选点经纬度
+        D_D.PICTURE_ ,--附件图片
+        D_D.SORT_,--排序
+        D_D.CREATE_TIME_,
+        D_D_D.DIRECTORY_NAME_,--目录名称
+        D_D.INSTALLATION_UNIT_,--安装单位
+        CASE
+
+        WHEN ( SITE_ = 1 ) THEN
+        '是'
+        WHEN ( SITE_ = 2 ) THEN
+        '否'
+        END AS SITE_CN_,
+        CASE
+
+        WHEN ( STATUS_ = 1 ) THEN
+        '正常'
+        WHEN ( STATUS_ = 2 ) THEN
+        '异常'
+        WHEN ( STATUS_ = 2 ) THEN
+        '维护'
+        END AS STATUS_CN_,
+        CONVERT ( VARCHAR ( 16 ), D_D.CREATE_TIME_, 120 ) createTime,
+        CONVERT ( VARCHAR ( 16 ), D_D.UPDATE_TIME_, 120 ) updateTime
+        FROM
+        DM_DEVICE D_D
+        LEFT JOIN DM_DEVICE_DIRECTORY D_D_D ON D_D_D.ID_ = D_D.DIRECTORY_UID_
+        WHERE
+        D_D.PROJ_UID_= #{ projUid }
+        <if test="directoryUid != null and directoryUid != ''">
+            AND D_D.DIRECTORY_UID_= #{ directoryUid }
+        </if>
+        <if test="status != null and status != ''">
+            AND D_D.STATUS_= #{ status }
+        </if>
+        <if test="search != null and search != ''">
+            AND D_D.NAME_ LIKE '%${ search }%'
+        </if>
+        <if test="site != null and site != ''">
+            AND D_D.SITE_ = #{ site }
+        </if>
+        ) DATA_
+        WHERE
+        (DATA_.Rownumver BETWEEN #{startIndex} AND #{endIndex})
+        ORDER BY
+        DATA_.CREATE_TIME_ ASC
+    </select>
+    
+    
+    <!--获取设备列表-->
+    <select id="getDeviceListMySql" resultMap="getDeviceListMap">
+        SELECT *
+        FROM
+        (
+        SELECT
+        D_D.ID_,
+        D_D.NAME_, 
+        D_D.CODE_ ,
+        D_D.SPECIFICATION_ ,
+        D_D.PRODUCE_FACTORY_ ,
+        DATE_FORMAT(D_D.IN_SITE_DATE_, '%Y-%m-%d') inSiteDate,
+        DATE_FORMAT(D_D.OUT_SITE_DATE_, '%Y-%m-%d') outSiteDate,
+        D_D.PRINCIPAL_UID_ ,
+        D_D.PRINCIPAL_ ,
+        D_D.INSTALL_POSITION_ ,
+        D_D.BRAND_ ,
+        D_D.PRINCIPAL_PHONE_ ,
+        D_D.ACCEPTANCE_UID_ ,
+        D_D.ACCEPTANCE_ ,
+        D_D.ACCEPTANCE_PHONE_ ,
+        D_D.SITE_ ,
+        D_D.STATUS_ ,
+        D_D.REMARK_ ,
+        D_D.ADDRESS_ ,
+        D_D.ADDRESS_LOCATION_ ,
+        D_D.PICTURE_ ,
+        D_D.SORT_,
+        D_D.CREATE_TIME_,
+        D_D_D.DIRECTORY_NAME_,
+        D_D.INSTALLATION_UNIT_,
+        CASE WHEN(SITE_ = 1) THEN
+        '是'
+        WHEN(SITE_ = 2) THEN
+        '否'
+        END AS SITE_CN_,
+        CASE
+
+        WHEN(STATUS_ = 1) THEN
+        '正常'
+        WHEN(STATUS_ = 2) THEN
+        '异常'
+        WHEN(STATUS_ = 2) THEN
+        '维护'
+        END AS STATUS_CN_,
+        DATE_FORMAT(D_D.CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+        DATE_FORMAT(D_D.UPDATE_TIME_, '%Y-%m-%d %H:%i') updateTime
+        FROM
+        DM_DEVICE D_D
+        LEFT JOIN DM_DEVICE_DIRECTORY D_D_D ON D_D_D.ID_ = D_D.DIRECTORY_UID_
+        WHERE
+        D_D.PROJ_UID_= #{projUid}
+        <if test="directoryUid != null and directoryUid != ''">
+            AND D_D.DIRECTORY_UID_= #{ directoryUid }
+        </if>
+        <if test="status != null and status != ''">
+            AND D_D.STATUS_= #{ status }
+        </if>
+        <if test="search != null and search != ''">
+            AND D_D.NAME_ LIKE '%${ search }%'
+        </if>
+        <if test="site != null and site != ''">
+            AND D_D.SITE_ = #{ site }
+        </if>
+        ) DATA_
+        ORDER BY
+        DATA_.CREATE_TIME_ ASC LIMIT #{startIndex}, #{endIndex}
+    </select>
+
+    <!--获取设备列表-->
+    <select id="getDeviceListTotalCount" resultType="int">
+        SELECT
+        COUNT(D_D.ID_)
+        FROM
+        DM_DEVICE D_D
+        LEFT JOIN DM_DEVICE_DIRECTORY D_D_D ON D_D_D.ID_ = D_D.DIRECTORY_UID_
+        WHERE
+        D_D.PROJ_UID_= #{ projUid }
+        <if test="directoryUid != null and directoryUid != ''">
+            AND D_D.DIRECTORY_UID_= #{ directoryUid }
+        </if>
+        <if test="status != null and status != ''">
+            AND D_D.STATUS_= #{ status }
+        </if>
+        <if test="search != null and search != ''">
+            AND D_D.NAME_ LIKE '%${ search }%'
+        </if>
+        <if test="site != null and site != ''">
+            AND D_D.SITE_ = #{ site }
+        </if>
+    </select>
+
+    <resultMap type="java.util.HashMap" id="getDeviceListMap">
+        <id property="id" column="ID_"/>
+        <result property="totalCount" column="TOTAL_COUNT_"/>
+        <result property="name" column="NAME_"/>
+        <result property="code" column="CODE_"/>
+        <result property="specification" column="SPECIFICATION_"/>
+        <result property="produceFactory" column="PRODUCE_FACTORY_"/>
+        <!--<result property="inSiteDate" column="IN_SITE_DATE_"/>-->
+        <!--<result property="outSiteDate" column="OUT_SITE_DATE_"/>-->
+        <result property="installPosition" column="INSTALL_POSITION_"/>
+        <result property="brand" column="BRAND_"/>
+        <result property="principalUid" column="PRINCIPAL_UID_"/>
+        <result property="principal" column="PRINCIPAL_"/>
+        <result property="principalPhone" column="PRINCIPAL_PHONE_"/>
+        <result property="acceptanceUid" column="ACCEPTANCE_UID_"/>
+        <result property="acceptance" column="ACCEPTANCE_"/>
+        <result property="acceptancePhone" column="ACCEPTANCE_PHONE_"/>
+        <result property="site" column="SITE_"/>
+        <result property="status" column="STATUS_"/>
+        <result property="site_cn" column="SITE_CN_"/>
+        <result property="status_cn" column="STATUS_CN_"/>
+        <result property="remark" column="REMARK_"/>
+        <result property="address" column="ADDRESS_"/>
+        <result property="addressLocation" column="ADDRESS_LOCATION_"/>
+        <result property="picture" column="PICTURE_"/>
+        <result property="sort" column="SORT_"/>
+        <result property="directoryName" column="DIRECTORY_NAME_"/>
+        <result property="installationUnit" column="INSTALLATION_UNIT_"/>
+        <!--<result property="createTime" column="CREATE_TIME_"/>-->
+        <!--<result property="updateTime" column="UPDATE_TIME_"/>-->
+    </resultMap>
+
+    <!--更新设备串号状态信息-->
+    <update id="updateDeviceStatus">
+            UPDATE DM_DEVICE SET STATUS_ = #{status} WHERE ID_ = #{deviceUid}
+    </update>
+
+    <!--批量删除设备-->
+    <delete id="deleteDevices">
+        DELETE FROM DM_DEVICE WHERE ID_ in
+        <foreach collection="ids" item="arr" index="index" open="("
+                 separator="," close=")">
+            #{arr}
+        </foreach>
+    </delete>
+
+
+    <!--获取目录-->
+    <select id="getRecordLast" resultMap="getRecordLastMap">
+		<if test="dbType == 'mysql'">
+			select * FROM (
+	        SELECT T_D_D.ID_ AS DEVICE_UID_,NULL AS
+	        PROTECT_UID_,
+	        DATE_FORMAT(T_D_D.CREATE_TIME_, '%Y-%m-%d %H:%i') CREATE_TIME_ ,
+	        (SELECT PICTURE_ FROM ORG_USER WHERE ID_=T_D_D.CREATE_USER_ ) PICTURE_,
+	        (SELECT USER_NAME_ FROM ORG_USER WHERE ID_=T_D_D.CREATE_USER_ ) CREATE_USER_NAME_,
+	        T_D_D.NAME_ ,T_D_D.SITE_ ,T_D_D.PRINCIPAL_ ,ifnull(T_D_D.SPECIFICATION_,'') SPECIFICATION_,
+	        NULL AS PROTECT_TYPE_ ,NULL AS DEVICE_NAME_ , T_D_D.STATUS_,NULL AS RECORDER_ ,NULL AS REMARK_ ,NULL AS MAINTAIN_TYPE_ ,
+	        ifnull(T_D_D.INSTALL_POSITION_,'')  AS DESCRIPTION_ ,NULL AS HOUR_ ,NULL AS MINUTE_,NULL AS DATE_ FROM DM_DEVICE T_D_D
+	        WHERE T_D_D.PROJ_UID_= #{projUid}
+	        <if test="site != null and site !=''">
+	            AND T_D_D.SITE_ = #{site}
+	        </if>
+	        <if test="deviceUid != null and deviceUid !=''">
+	            AND T_D_D.ID_ = #{deviceUid}
+	        </if>
+	        UNION ALL
+	        SELECT D_D_S.ID_ AS DEVICE_UID_,T_D_D_P.ID_
+	        AS PROTECT_UID_,
+	        DATE_FORMAT(T_D_D_P.CREATE_TIME_, '%Y-%m-%d %H:%i') CREATE_TIME_ ,
+	        (SELECT PICTURE_ FROM ORG_USER WHERE ID_=T_D_D_P.CREATE_USER_ ) PICTURE_,
+	        (SELECT USER_NAME_ FROM ORG_USER WHERE ID_=T_D_D_P.CREATE_USER_ ) CREATE_USER_NAME_,
+	        NULL ,NULL , NULL ,NULL ,T_D_D_P.PROTECT_TYPE_ ,
+	        (SELECT NAME_ FROM DM_DEVICE WHERE ID_= T_D_D_P.DEVICE_UID_)AS DEVICE_NAME_ ,
+	        (SELECT STATUS_ FROM DM_DEVICE WHERE ID_= T_D_D_P.DEVICE_UID_)AS STATUS_ ,
+	        T_D_D_P.RECORDER_ ,T_D_D_P.REMARK_ ,T_D_D_P.MAINTAIN_TYPE_ ,T_D_D_P.DESCRIPTION_ ,
+	        T_D_D_P.HOUR_ ,T_D_D_P.MINUTE_,DATE_FORMAT(T_D_D_P.DATE_, '%Y-%m-%d') DATE_ FROM DM_DEVICE_PROTECT T_D_D_P
+	        LEFT JOIN DM_DEVICE D_D_S ON D_D_S.ID_ = T_D_D_P.DEVICE_UID_
+	        WHERE T_D_D_P.PROJ_UID_= #{projUid}
+	        <if test="site != null and site!=''">
+	            AND D_D_S.SITE_ = #{site}
+	        </if>
+	        <if test="deviceUid != null and deviceUid !=''">
+	            AND D_D_S.ID_ = #{deviceUid}
+	        </if>
+	        ) data order by CREATE_TIME_ desc LIMIT #{start}, #{end} 
+		</if>
+		<if test="dbType == 'mssql'">
+				select * FROM (
+	        SELECT ROW_NUMBER() OVER(ORDER BY T_D_D.CREATE_TIME_ DESC) as Rownumver,T_D_D.ID_ AS DEVICE_UID_,NULL AS
+	        PROTECT_UID_,
+	        CONVERT(VARCHAR(16), T_D_D.CREATE_TIME_,120) CREATE_TIME_ ,
+	        (SELECT PICTURE_ FROM ORG_USER WHERE ID_=T_D_D.CREATE_USER_ ) PICTURE_,
+	        (SELECT USER_NAME_ FROM ORG_USER WHERE ID_=T_D_D.CREATE_USER_ ) CREATE_USER_NAME_,
+	        /*(SELECT COUNT(ID_) FROM T_MSG_COMMENT WHERE BUSINESS_KEY_=T_D_D.ID_) commentCount,
+	        (SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D.ID_) lookCount,
+	        (SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D.ID_ AND IS_LIKE_=1) likeCount,*/
+	        T_D_D.NAME_ ,T_D_D.SITE_ ,T_D_D.PRINCIPAL_ ,ISNULL(T_D_D.SPECIFICATION_,'') SPECIFICATION_,
+	        NULL AS PROTECT_TYPE_ ,NULL AS DEVICE_NAME_ , T_D_D.STATUS_,NULL AS RECORDER_ ,NULL AS REMARK_ ,NULL AS MAINTAIN_TYPE_ ,
+	        ISNULL(T_D_D.INSTALL_POSITION_,'')  AS DESCRIPTION_ ,NULL AS HOUR_ ,NULL AS MINUTE_,NULL AS DATE_ FROM DM_DEVICE T_D_D
+	        WHERE T_D_D.PROJ_UID_= #{ projUid }
+	        <if test="site != null and site !=''">
+	            AND T_D_D.SITE_ = #{ site }
+	        </if>
+	        <if test="deviceUid != null and deviceUid !=''">
+	            AND T_D_D.ID_ = #{ deviceUid }
+	        </if>
+	        UNION ALL
+	        SELECT ROW_NUMBER() OVER(ORDER BY T_D_D_P.CREATE_TIME_ DESC) as Rownumver,D_D_S.ID_ AS DEVICE_UID_,T_D_D_P.ID_
+	        AS PROTECT_UID_,
+	        CONVERT(VARCHAR(16), T_D_D_P.CREATE_TIME_,120) CREATE_TIME_ ,
+	        (SELECT PICTURE_ FROM ORG_USER WHERE ID_=T_D_D_P.CREATE_USER_ ) PICTURE_,
+	        (SELECT USER_NAME_ FROM ORG_USER WHERE ID_=T_D_D_P.CREATE_USER_ ) CREATE_USER_NAME_,
+	        /*(SELECT COUNT(ID_) FROM T_MSG_COMMENT WHERE BUSINESS_KEY_=T_D_D_P.ID_) commentCount,
+	        (SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D_P.ID_) lookCount,
+	        (SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D_P.ID_ AND IS_LIKE_=1) likeCount,*/
+	        NULL ,NULL , NULL ,NULL ,T_D_D_P.PROTECT_TYPE_ ,
+	        (SELECT NAME_ FROM DM_DEVICE WHERE ID_= T_D_D_P.DEVICE_UID_)AS DEVICE_NAME_ ,
+	        (SELECT STATUS_ FROM DM_DEVICE WHERE ID_= T_D_D_P.DEVICE_UID_)AS STATUS_ ,
+	        T_D_D_P.RECORDER_ ,T_D_D_P.REMARK_ ,T_D_D_P.MAINTAIN_TYPE_ ,T_D_D_P.DESCRIPTION_ ,
+	        T_D_D_P.HOUR_ ,T_D_D_P.MINUTE_,convert(varchar(16),T_D_D_P.DATE_,23) DATE_ FROM DM_DEVICE_PROTECT T_D_D_P
+	        LEFT JOIN DM_DEVICE D_D_S ON D_D_S.ID_ = T_D_D_P.DEVICE_UID_
+	        WHERE T_D_D_P.PROJ_UID_= #{ projUid }
+	        <if test="site != null and site!=''">
+	            AND D_D_S.SITE_ = #{ site }
+	        </if>
+	        <if test="deviceUid != null and deviceUid !=''">
+	            AND D_D_S.ID_ = #{ deviceUid }
+	        </if>
+	        ) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc
+		</if>
+        
+
+    </select>
+    <!--<select id="getRecordLast" resultMap="getRecordLastMap">-->
+    <!--DECLARE @pageIndex INT =#{ pageIndex }-->
+    <!--DECLARE @pageSize INT =#{ pageSize }-->
+    <!--SELECT * FROM (-->
+    <!--SELECT TOP (@pageSize)-->
+    <!--D_D_P.*-->
+    <!--FROM (-->
+    <!--SELECT-->
+    <!--T_D_D.ID_ AS DEVICE_UID_,-->
+    <!--NULL AS PROTECT_UID_,-->
+    <!--CONVERT(VARCHAR(16), T_D_D.CREATE_TIME_,120) CREATE_TIME_ ,-->
+    <!--(SELECT PICTURE_ FROM ORG_USER WHERE ID_=T_D_D.CREATE_USER_ ) PICTURE_,-->
+    <!--(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=T_D_D.CREATE_USER_ ) CREATE_USER_NAME_,-->
+    <!--(SELECT COUNT(ID_) FROM T_MSG_COMMENT WHERE BUSINESS_KEY_=T_D_D.ID_) commentCount,-->
+    <!--(SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D.ID_) lookCount,-->
+    <!--(SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D.ID_ AND IS_LIKE_=1) likeCount,-->
+    <!--T_D_D.NAME_ ,-->
+    <!--T_D_D.SITE_ ,-->
+    <!--T_D_D.PRINCIPAL_ ,-->
+    <!--T_D_D.SPECIFICATION_ ,-->
+    <!--NULL AS PROTECT_TYPE_ ,-->
+    <!--NULL AS DEVICE_NAME_ ,-->
+    <!--NULL AS RECORDER_ ,-->
+    <!--NULL AS REMARK_ ,-->
+    <!--NULL AS MAINTAIN_TYPE_ ,-->
+    <!--NULL AS DESCRIPTION_ ,-->
+    <!--NULL AS HOUR_ ,-->
+    <!--NULL AS MINUTE_-->
+    <!--FROM DM_DEVICE T_D_D-->
+    <!--WHERE  T_D_D.PROJ_UID_= #{ projUid }-->
+    <!--<if test="site != null">-->
+    <!--AND T_D_D.SITE_ = #{ site }-->
+    <!--</if>-->
+    <!--<if test="deviceUid != null">-->
+    <!--AND T_D_D.ID_ = #{ deviceUid }-->
+    <!--</if>-->
+
+    <!--UNION ALL-->
+    <!--SELECT-->
+    <!--D_D_S.ID_ AS DEVICE_UID_,-->
+    <!--T_D_D_P.ID_ AS PROTECT_UID_,-->
+    <!--CONVERT(VARCHAR(16), T_D_D_P.CREATE_TIME_,120) CREATE_TIME_ ,-->
+    <!--(SELECT PICTURE_ FROM ORG_USER WHERE ID_=T_D_D_P.CREATE_USER_ ) PICTURE_,-->
+    <!--(SELECT USER_NAME_ FROM ORG_USER WHERE ID_=T_D_D_P.CREATE_USER_ ) CREATE_USER_NAME_,-->
+    <!--(SELECT COUNT(ID_) FROM T_MSG_COMMENT WHERE BUSINESS_KEY_=T_D_D_P.ID_) commentCount,-->
+    <!--(SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D_P.ID_) lookCount,-->
+    <!--(SELECT COUNT(ID_) FROM T_MSG_LOOKANDLIKE WHERE BUSINESS_KEY_=T_D_D_P.ID_ AND IS_LIKE_=1) likeCount,-->
+    <!--NULL ,-->
+    <!--NULL ,-->
+    <!--NULL ,-->
+    <!--NULL ,-->
+    <!--T_D_D_P.PROTECT_TYPE_ ,-->
+    <!--(SELECT NAME_-->
+    <!--FROM DM_DEVICE-->
+    <!--WHERE ID_= T_D_D_P.DEVICE_UID_-->
+    <!--)AS DEVICE_NAME_ ,-->
+    <!--T_D_D_P.RECORDER_ ,-->
+    <!--T_D_D_P.REMARK_ ,-->
+    <!--T_D_D_P.MAINTAIN_TYPE_ ,-->
+    <!--T_D_D_P.DESCRIPTION_ ,-->
+    <!--T_D_D_P.HOUR_ ,-->
+    <!--T_D_D_P.MINUTE_-->
+    <!--FROM DM_DEVICE_PROTECT T_D_D_P-->
+    <!--LEFT JOIN DM_DEVICE D_D_S ON D_D_S.ID_ = T_D_D_P.DEVICE_UID_-->
+    <!--WHERE  T_D_D_P.PROJ_UID_= #{ projUid }-->
+    <!--<if test="site != null">-->
+    <!--AND D_D_S.SITE_ = #{ site }-->
+    <!--</if>-->
+    <!--<if test="deviceUid != null">-->
+    <!--AND D_D_S.ID_ = #{ deviceUid }-->
+    <!--</if>-->
+    <!--) D_D_P-->
+    <!--WHERE-->
+    <!--CONVERT(varchar(100), D_D_P.CREATE_TIME_, 130)-->
+    <!--&gt;=-->
+    <!--CONVERT(varchar(100),-->
+    <!--(-->
+    <!--SELECT-->
+    <!--MIN(CREATE_TIME_)-->
+    <!--FROM (-->
+    <!--SELECT TOP (@pageIndex * @pageSize)-->
+    <!--D_D_P_S.CREATE_TIME_-->
+    <!--FROM-->
+    <!--(-->
+    <!--SELECT-->
+    <!--CREATE_TIME_-->
+    <!--FROM DM_DEVICE T_D_D-->
+    <!--WHERE  T_D_D.PROJ_UID_= #{ projUid }-->
+    <!--<if test="site != null">-->
+    <!--AND T_D_D.SITE_ = #{ site }-->
+    <!--</if>-->
+    <!--<if test="deviceUid != null">-->
+    <!--AND T_D_D.ID_ = #{ deviceUid }-->
+    <!--</if>-->
+    <!--UNION ALL-->
+    <!--SELECT-->
+    <!--T_D_D_P.CREATE_TIME_-->
+    <!--FROM DM_DEVICE_PROTECT T_D_D_P-->
+    <!--LEFT JOIN DM_DEVICE D_D_G ON D_D_G.ID_ = T_D_D_P.DEVICE_UID_-->
+    <!--WHERE  T_D_D_P.PROJ_UID_= #{ projUid }-->
+    <!--<if test="site != null">-->
+    <!--AND D_D_G.SITE_ = #{ site }-->
+    <!--</if>-->
+    <!--<if test="deviceUid != null">-->
+    <!--AND D_D_G.ID_ = #{ deviceUid }-->
+    <!--</if>-->
+    <!--)-->
+    <!--D_D_P_S-->
+    <!--ORDER BY D_D_P_S.CREATE_TIME_  DESC-->
+    <!--) VAL)-->
+    <!--, 130)-->
+    <!--ORDER BY D_D_P.CREATE_TIME_ ASC-->
+    <!--) DDD ORDER BY CREATE_TIME_ DESC-->
+    <!--</select>-->
+
+    <resultMap type="java.util.HashMap" id="getRecordLastMap">
+        <id property="deviceUid" column="DEVICE_UID_"/>
+        <id property="id" column="PROTECT_UID_"/>
+        <result property="name" column="NAME_"/>
+        <result property="site" column="SITE_"/>
+        <result property="principal" column="PRINCIPAL_"/>
+        <result property="specification" column="SPECIFICATION_"/>
+        <result property="protectType" column="PROTECT_TYPE_"/>
+        <result property="deviceName" column="DEVICE_NAME_"/>
+        <result property="status" column="STATUS_"/>
+        <result property="recorder" column="RECORDER_"/>
+        <result property="remark" column="REMARK_"/>
+        <result property="maintainType" column="MAINTAIN_TYPE_"/>
+        <result property="description" column="DESCRIPTION_"/>
+        <result property="hour" column="HOUR_"/>
+        <result property="minute" column="MINUTE_"/>
+        <result property="date" column="DATE_"/>
+        <result property="createTime" column="CREATE_TIME_"/>
+        <result property="picture" column="PICTURE_"/>
+        <result property="createUserName" column="CREATE_USER_NAME_"/>
+    </resultMap>
+
+    <!--根据设备串号来查询设备状态信息-->
+    <select id="getDeviceStausInfo" resultType="java.util.HashMap">
+        SELECT * FROM T_STATUS_DEVICE WHERE deviceId=#{deviceId}
+    </select>
+
+    <!-- 根据设备编码来查询设备信息-->
+    <select id="queryDeviceInfoByCode" resultType="java.util.HashMap">
+        SELECT * FROM DM_DEVICE where CODE_=#{code} AND PROJ_UID_=#{projUid}
+    </select>
+
+</mapper>

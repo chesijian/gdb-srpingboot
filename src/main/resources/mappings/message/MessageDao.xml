@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.construction.dao.MessageDao">
+
+
+	<resultMap type="java.util.HashMap" id="messageListMap">
+		<id property="id" column="ID_" />
+		<result property="subject" column="SUBJECT_" />
+		<result property="businessKey" column="BUSINESS_KEY_" />
+		<result property="formType" column="FORM_TYPE_" />
+		<result property="fromUser" column="FROM_USER_" />
+		<result property="position" column="POSITION_" />
+		<result property="commentCount" column="commentCount" />
+		<result property="lookCount" column="lookCount" />
+		<result property="likeCount" column="likeCount" />
+		<result property="businessUrl" column="BUSINESS_URL_" />
+		<result property="formUrl" column="FORM_URL_" />
+		<result property="picture" column="PICTURE_" />
+		<result property="dbType" column="DB_TYPE_" />
+		<collection property="commentList" column="{businessKey=BUSINESS_KEY_,dbType=DB_TYPE_}" javaType="java.util.List"  select="getMsgComments" />
+		<collection property="imgs" column="{parentId=BUSINESS_KEY_}" javaType="java.util.List"  select="com.jrsoft.modules.construction.dao.InspectDao.selectFileList" />
+	</resultMap>
+
+	<!--获取消息列表数据-->
+	<select id="getMessageList" resultMap="messageListMap">
+		<if test="dbType == 'mysql'">
+			select ID_,SUBJECT_ subject,BUSINESS_KEY_,FORM_TYPE_ formType,#{dbType} DB_TYPE_,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,FROM_USER_ fromUser,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) PICTURE_,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+			(select POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid} LIMIT  1) POSITION_,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=D.BUSINESS_KEY_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.BUSINESS_KEY_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.BUSINESS_KEY_ AND IS_LIKE_=1) likeCount,
+			CREATE_TIME_,BUSINESS_URL_ businessUrl,FORM_URL_ formUrl
+			from  T_MSG D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+			and (CREATE_USER_=#{userUid} OR ID_ IN (SELECT PARENT_UID_ FROM t_msg_user WHERE USER_UID_=#{userUid}))
+			<if test="statisDate != null and statisDate!='' ">
+				and DATE_FORMAT(CREATE_TIME_, '%Y-%m')=#{statisDate}
+			</if>
+			order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver,
+			ID_,SUBJECT_ subject,BUSINESS_KEY_,FORM_TYPE_ formType,convert(varchar(16),CREATE_TIME_,120) createTime,FROM_USER_ fromUser,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) PICTURE_,#{dbType} DB_TYPE_,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+			(select TOP 1 POSITION_ from WX_PRO_MEMBER where USER_UID_=D.CREATE_USER_ AND PRO_UID_=#{projUid}) POSITION_,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=D.BUSINESS_KEY_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.BUSINESS_KEY_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=D.BUSINESS_KEY_ AND IS_LIKE_=1) likeCount,
+			CREATE_TIME_,BUSINESS_URL_ businessUrl,FORM_URL_ formUrl
+			from  T_MSG D where COMPANY_=#{companyUid} and PROJ_UID_=#{projUid}
+			<if test="statisDate != null and statisDate!='' ">
+				and convert(varchar(7),CREATE_TIME_,120)=#{statisDate}
+			</if>
+			) data  where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+		</if>
+
+	</select>
+	
+	<select id="getMsgComments" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select ID_ id,CONTENT_ content,CREATE_USER_ createUser,
+			DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName
+			from  T_MSG_COMMENT D where BUSINESS_KEY_=#{businessKey} AND  REPLY_PARENT_ID_='root' order by CREATE_TIME_ desc LIMIT 2
+		</if>
+		<if test="dbType == 'mssql'">
+			select top 2 ID_ id,CONTENT_ content,CREATE_USER_ createUser,convert(varchar(16),CREATE_TIME_,120) createTime,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName
+			from  T_MSG_COMMENT D where BUSINESS_KEY_=#{businessKey} AND  REPLY_PARENT_ID_='root' order by CREATE_TIME_ desc
+		</if>
+
+	</select>
+
+	<resultMap type="java.util.HashMap" id="commentsMap">
+		<id property="id" column="ID_" />
+		<result property="content" column="CONTENT_" />
+		<result property="createUser" column="CREATE_USER_" />
+		<result property="createTime" column="createTime" />
+		<result property="createUserName" column="createUserName" />
+		<result property="improver" column="improver" />
+		<result property="DBTYPE_" column="DBTYPE_" />
+		<collection property="replyList" column="{parentUid=ID_,dbType=DBTYPE_}" javaType="java.util.List"  select="getReplyList" />
+	</resultMap>
+	<!--获取评论列表数据-->
+	<select id="getCommentsList" resultMap="commentsMap">
+		<if test="dbType == 'mysql'">
+			select ID_,CONTENT_,CREATE_USER_ createUser,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,#{dbType} DBTYPE_,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+			(SELECT COUNT(ID_) from T_MSG_COMMENT WHERE REPLY_PARENT_ID_=D.ID_) replyTotalCount
+			from  T_MSG_COMMENT D where BUSINESS_KEY_=#{businessKey} AND  REPLY_PARENT_ID_='root'
+			 order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver,
+			ID_,CONTENT_,CREATE_USER_ createUser,convert(varchar(16),CREATE_TIME_,120) createTime,CREATE_TIME_,#{dbType} DBTYPE_,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+			(SELECT COUNT(ID_) from T_MSG_COMMENT WHERE REPLY_PARENT_ID_=D.ID_) replyTotalCount
+			from  T_MSG_COMMENT D where BUSINESS_KEY_=#{businessKey} AND  REPLY_PARENT_ID_='root'
+			) data  where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+		</if>
+
+	</select>
+
+	<!--获取两条回复记录-->
+	<select id="getReplyList" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select ID_ id,CONTENT_ content,CREATE_USER_ createUser,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName
+			from  T_MSG_COMMENT D where REPLY_PARENT_ID_=#{parentUid} LIMIT 2
+		</if>
+		<if test="dbType == 'mssql'">
+			select top 2 ID_ id,CONTENT_ content,CREATE_USER_ createUser,convert(varchar(16),CREATE_TIME_,120) createTime,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName
+			from  T_MSG_COMMENT D where REPLY_PARENT_ID_=#{parentUid}
+		</if>
+
+	</select>
+	<!--获取回复记录-->
+	<select id="getReplyDetails" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select ID_ id,CONTENT_ content,CREATE_USER_ createUser,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+			(select USER_NAME_ from ORG_USER where ID_=D.REPLY_TO_USERID_) replyToUser
+			from  T_MSG_COMMENT D where REPLY_PARENT_ID_=#{parentUid}
+			order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver,
+			ID_ id,CONTENT_ content,CREATE_USER_ createUser,convert(varchar(16),CREATE_TIME_,120) createTime,CREATE_TIME_,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+			(select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName,
+			(select USER_NAME_ from ORG_USER where ID_=D.REPLY_TO_USERID_) replyToUser
+			from  T_MSG_COMMENT D where REPLY_PARENT_ID_=#{parentUid}
+			) data  where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+		</if>
+
+
+	</select>
+
+	<!--获取评论总数-->
+	<select id="getCommentTotalCount" resultType="int">
+		select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_ = #{businessKey,jdbcType=VARCHAR}
+
+	</select>
+
+	<!--获取当前人是否已有查看记录-->
+	<select id="findUserLookRecord" resultType="int">
+		select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_ = #{id,jdbcType=VARCHAR} AND  USER_UID_=#{userUid}
+
+	</select>
+
+	<!--插入查看人记录-->
+	<insert id="insertLookUser" parameterType="java.util.HashMap">
+		insert into T_MSG_LOOKANDLIKE (ID_,USER_UID_, BUSINESS_KEY_,IS_LIKE_,CREATE_USER_,CREATE_TIME_,COMPANY_) values
+		(#{id,jdbcType=VARCHAR},#{userUid,jdbcType=VARCHAR}, #{businessKey,jdbcType=VARCHAR}, #{isLike}, #{createUser,jdbcType=VARCHAR},#{createTime,jdbcType=TIMESTAMP},#{company,jdbcType=VARCHAR})
+
+	</insert>
+
+	<!--获取已读、点赞列表数据-->
+	<select id="getLookAndLikeList" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+			(select USER_NAME_ from ORG_USER where ID_=D.USER_UID_) userName
+			from  T_MSG_LOOKANDLIKE D where BUSINESS_KEY_=#{businessKey}
+			<if test="ifLike != null and ifLike!='' ">
+				and IS_LIKE_=#{ifLike}
+			</if>
+			 order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			select * from ( select ROW_NUMBER() OVER(ORDER BY CREATE_TIME_ DESC) as Rownumver,
+			convert(varchar(16),CREATE_TIME_,120) createTime,CREATE_TIME_,
+			(select PICTURE_ from ORG_USER where ID_=D.CREATE_USER_) picture,
+			(select USER_NAME_ from ORG_USER where ID_=D.USER_UID_) userName
+			from  T_MSG_LOOKANDLIKE D where BUSINESS_KEY_=#{businessKey}
+			<if test="ifLike != null and ifLike!='' ">
+				and IS_LIKE_=#{ifLike}
+			</if>
+			) data  where (data.Rownumver between #{start} and #{end})  order by CREATE_TIME_ desc
+		</if>
+
+	</select>
+	<!--获取已读、点赞总数-->
+	<select id="getLookAndLikeTotalCount" resultType="int">
+		select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_ = #{businessKey,jdbcType=VARCHAR}
+		<if test="ifLike != null and ifLike!='' ">
+			and IS_LIKE_=#{ifLike}
+		</if>
+	</select>
+
+	<update id="updateLikeValue">
+		  UPDATE T_MSG_LOOKANDLIKE SET IS_LIKE_=#{likeValue} WHERE USER_UID_=#{userUid} AND BUSINESS_KEY_=#{businessKey}
+	</update>
+
+	<select id="getSelectedUsers" resultType="java.util.HashMap">
+		select ID_ id,USER_NAME_ userName,PICTURE_ picture from ORG_USER where ID_ IN
+		<foreach collection="ids" index="index" item="item" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<delete id="deleteByBusinessKey">
+		delete from  T_MSG where BUSINESS_KEY_ =#{businessKey}
+	</delete>
+
+	<!--查询当前人是否已点赞-->
+	<select id="getIfLike" resultType="int">
+		select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_ = #{businessKey,jdbcType=VARCHAR}
+		AND USER_UID_=#{userUid} AND IS_LIKE_=1
+	</select>
+
+</mapper>

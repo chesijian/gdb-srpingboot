@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.business.modules.meeting.dao.MeetingDao">
+
+	
+	<!-- 根据项目id查询会议室列表 -->
+	<select id="searchMeetingRoomtList" resultType="java.util.HashMap" >
+		<if test="dbType == 'mysql'">
+			SELECT * FROM (select 
+			ID_ id, NAME_ name, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREATE_TIME_,  
+			(select ifnull(count(id_), 0) from T_MEETING where MEETING_ROOM_UID_ = a.id_) status, 
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture, 
+			(	select count(id_) from T_MEETING_ROOM a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			) totalCount
+			from T_MEETING_ROOM a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			) data order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ desc) as Rownumver, 
+			ID_ id, NAME_ name, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_TIME_, COUNT(1) OVER() AS totalCount, 
+			(select isnull(count(id_), 0) from T_MEETING where MEETING_ROOM_UID_ = a.id_) status, 
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture 
+			from T_MEETING_ROOM a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc
+		</if>
+		
+	</select>
+	
+	
+	<!-- 查询会议室时间 -->
+	<select id="searchMeetingRoomtTimeDetails" resultType="java.util.HashMap" >
+		select
+		<if test="dbType == 'mysql'">
+			DATE_FORMAT(a.START_DATE_, '%H:%i') startDate, 
+			DATE_FORMAT(a.END_DATE_, '%H:%i') endDate 	
+		</if>
+		<if test="dbType == 'mssql'">
+			convert(varchar(5),a.START_DATE_,8) startDate, 
+			convert(varchar(5),a.END_DATE_,8) endDate 
+		</if> 
+		from T_MEETING a where MEETING_ROOM_UID_ = #{id} 
+		<if test="dbType == 'mysql'">
+			and DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') like concat('%', #{date}, '%')
+		</if>
+		<if test="dbType == 'mssql'">
+			and convert(varchar(100),a.CREATE_TIME_,23) like '%'+#{date}+'%'
+		</if> 
+	</select>
+	
+	
+	<!-- 根据id查询会议室 -->
+	<select id="searchMeetingRoomtById" resultType="java.util.HashMap" >
+		select ID_ id, NAME_ name, (select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+		convert(varchar(100),a.CREATE_TIME_,23) createDate,
+		(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture, CREATE_USER_ createUser 
+		from T_MEETING_ROOM a where id_ = #{id}
+	</select>
+	
+	
+	<!-- 删除会议室时间记录 -->
+	<delete id="deleteMeetingRoomtTime">
+		DELETE FROM T_MEETING_ROOM_DET WHERE MEETING_ROOM_UID_ = #{id}
+	</delete>
+	
+	
+	<!-- 删除会议室 -->
+	<delete id="deleteMeetingRoomt">
+		DELETE FROM T_MEETING_ROOM WHERE id_ = #{id}
+	</delete>
+	
+	
+	<!-- 查询会议 -->
+	<select id="searchMeetingList" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			select ID_ id, TITLE_ title, CONTENT_ content, DATE_FORMAT(a.START_DATE_, '%Y-%m-%d %H:%i') startDate,
+			DATE_FORMAT(a.END_DATE_, '%Y-%m-%d %H:%i') endDate, MEETING_ROOM_UID_ meetingRoomUid, 
+			DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate, CREATE_TIME_,  
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture, SUMMARY_ summary, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			(select NAME_ from T_MEETING_ROOM where id_ = a.MEETING_ROOM_UID_) meetingRoomName, 
+			(select STATUS_ from T_MEETING_USER where PARENT_UID_ = a.id_ and USER_UID_ = #{userUid} limit 1) status,
+			(select COUNT(ID_) from WX_WORK_ORDER where PARENT_UID_=a.ID_) taskCount,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount, 
+			'/api_v1/business/meeting/meeting/{id}' businessUrl, 'conference/meetingSummary' formUrl, 
+			(	select count(id_) from T_MEETING a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+				<choose>
+
+	        	<when test="type == 1">		<!-- 待进行 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where USER_UID_ = #{userUid} or CREATE_USER_ = #{userUid}) and DATE_FORMAT(a.END_DATE_, '%Y-%m-%d %H:%i') > DATE_FORMAT(now(), '%Y-%m-%d %H:%i') )
+	        	</when>
+	        	<when test="type == 2">		<!-- 我发起的 -->
+	        		and a.CREATE_USER_ = #{userUid} 
+	        	</when>
+	        	<when test="type == 4">		<!-- 与我相关的 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid})
+	        	</when>
+	        	<when test="type == 3">		<!-- 会议纪要 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where (TYPE_ = 1 and USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid} ))
+	        	</when>
+	   			</choose>
+			) totalCount 
+			from T_MEETING a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			<choose>
+	        	<!-- <when test="isCompanyAdmin">
+	        	</when> -->
+	        	<when test="type == 1">		<!-- 待进行 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where USER_UID_ = #{userUid} or CREATE_USER_ = #{userUid}) and DATE_FORMAT(a.END_DATE_, '%Y-%m-%d %H:%i') > DATE_FORMAT(now(), '%Y-%m-%d %H:%i') )
+	        	</when>
+	        	<when test="type == 2">		<!-- 我发起的 -->
+	        		and a.CREATE_USER_ = #{userUid} 
+	        	</when>
+	        	<when test="type == 4">		<!-- 与我相关的 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid})
+	        	</when>
+	        	<when test="type == 3">		<!-- 会议纪要 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where (TYPE_ = 1 and USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid} ))
+	        	</when>
+			</choose>
+			<if test="search != null and search!='' ">
+				and TITLE_ like concat('%', #{search}, '%')
+			</if>
+			
+			 order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+		<if test="dbType == 'mssql'">
+			SELECT * FROM (select ROW_NUMBER() OVER(ORDER BY a.CREATE_TIME_ desc) as Rownumver,
+			ID_ id, TITLE_ title, CONTENT_ content, convert(varchar(16),a.START_DATE_,120) startDate, 
+			convert(varchar(16),a.END_DATE_,120) endDate, MEETING_ROOM_UID_ meetingRoomUid, 
+			convert(varchar(100),a.CREATE_TIME_,23) createDate, CREATE_TIME_, COUNT(1) OVER() AS totalCount, 
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture, SUMMARY_ summary, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, 
+			(select NAME_ from T_MEETING_ROOM where id_ = a.MEETING_ROOM_UID_) meetingRoomName, 
+			(select STATUS_ from T_MEETING_USER where PARENT_UID_ = a.id_ and USER_UID_ = #{userUid}) status, 
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,  
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount, 
+			'/api_v1/business/meeting/meeting/{id}' businessUrl, 'conference/meetingSummary' formUrl 
+			from T_MEETING a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			<choose>
+	        	<!-- <when test="isCompanyAdmin">
+	        	</when> -->
+	        	<when test="type == 1">		<!-- 待进行 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where USER_UID_ = #{userUid} or CREATE_USER_ = #{userUid}) and convert(varchar(16),a.END_DATE_,120) > CONVERT(varchar(16), GETDATE(), 120) )
+	        	</when>
+	        	<when test="type == 2">		<!-- 我发起的 -->
+	        		and a.CREATE_USER_ = #{userUid} 
+	        	</when>
+	        	<when test="type == 4">		<!-- 与我相关的 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid})
+	        	</when>
+	        	<when test="type == 3">		<!-- 会议纪要 -->
+	        		and (a.id_ in (select PARENT_UID_ from T_MEETING_USER where (TYPE_ = 1 and USER_UID_ = #{userUid}) or a.CREATE_USER_ = #{userUid} ))
+	        	</when>
+	   			</choose>
+			
+			) data where (data.Rownumver between #{start} and #{end}) order by CREATE_TIME_ desc
+		</if>
+	</select>
+
+	<!-- 查询会议任务 -->
+	<select id="getMeetingTasks" resultType="java.util.HashMap">
+		<if test="dbType == 'mysql'">
+			SELECT ID_ id,SUBJECT_ title,CONTENT_ content,START_TIME_ startTime,END_TIME_ endTime,PRIORITY_ priority,STATUS_ statusVal,
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture,PRINCIPAL_NAME_ principal,PRINCIPAL_UID_ principalUid,
+			COPY_USER_UID_ copyUserUid,
+			(select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=a.ID_) feedBackCount,
+			(select COUNT(ID_) from T_MSG_COMMENT where BUSINESS_KEY_=a.ID_) commentCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_) lookCount,
+			(select COUNT(ID_) from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ AND IS_LIKE_=1) likeCount
+			FROM WX_WORK_ORDER a where PROJ_UID_ = #{projUid} and COMPANY_ = #{companyUid}
+			<choose>
+				<!-- <when test="isCompanyAdmin">
+                </when> -->
+				<when test="type == 1">		<!-- 全部 -->
+
+				</when>
+				<when test="type == 2">		<!-- 我发起的 -->
+					and a.CREATE_USER_ = #{userUid}
+				</when>
+				<when test="type == 3">		<!-- 与我相关的 -->
+					and (a.PRINCIPAL_UID_ = #{userUid} OR COPY_USER_UID_ like concat('%', #{userUid}, '%')
+					)
+				</when>
+			</choose>
+			<if test="search != null and search!='' ">
+				and SUBJECT_ like concat('%', #{search}, '%')
+			</if>
+			order by CREATE_TIME_ desc LIMIT #{start}, #{end}
+		</if>
+
+	</select>
+
+	<resultMap id="orderDetailResultMap" type="java.util.HashMap">
+		<id property="id" column="ID_" />
+		<collection property="taskFeedBacks" column="{parentUid = ID_}"  javaType="java.util.List"  select="getTaskFeedBacks" />
+		<collection property="copyUserList" column="{parentUid = ID_}"  javaType="java.util.List"  select="getCopyUserList"/>
+	</resultMap>
+	<select id="getOrderDetail" resultMap="orderDetailResultMap">
+		SELECT D.ID_,D.SUBJECT_ subject,D.CONTENT_ content,DATE_FORMAT(D.CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+		STATUS_ statusVal,END_TIME_ endTime,PRIORITY_ priority,CREATE_USER_ createUser,
+		START_TIME_ startTime,COPY_USER_UID_ copyUserUid,COPY_USER_NAME_ copyUserName,D.PRINCIPAL_UID_ principalUid,
+		(select USER_NAME_ from ORG_USER where ID_=D.PRINCIPAL_UID_) principalName
+		FROM wx_work_order D WHERE D.ID_=#{id}
+	</select>
+	<select id="getTaskFeedBacks" resultType="java.util.HashMap">
+		  SELECT ID_ id,CONTENT_ content,DATE_FORMAT(CREATE_TIME_, '%Y-%m-%d %H:%i') createTime,
+		  (select USER_NAME_ from ORG_USER where ID_=D.CREATE_USER_) createUserName
+		  FROM t_meeting_feedback D WHERE PARENT_UID_=#{parentUid} ORDER BY CREATE_TIME_
+	</select>
+	<select id="getCopyUserList" resultType="java.util.HashMap">
+		SELECT USER_NAME_ userName,
+		USER_UID_  id,
+		(select PICTURE_ from ORG_USER where ID_=U.USER_UID_) picture
+		FROM wx_work_order_user U WHERE WORK_ORDER_UID_=#{parentUid}
+	</select>
+	<!-- 编辑会议 -->
+	<select id="searchMeetingById" resultMap="meetingPersonnel">
+		select ID_ id, TITLE_ title, TITLE_ subTitle, CONTENT_ content,
+			<if test="dbType == 'mysql'">
+				DATE_FORMAT(a.START_DATE_, '%Y-%m-%d %H:%i') startDate, 
+				DATE_FORMAT(a.END_DATE_, '%Y-%m-%d %H:%i') endDate, 
+				DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createTime,
+				DATE_FORMAT(a.CREATE_TIME_, '%Y-%m-%d') createDate,
+			</if>
+			<if test="dbType == 'mssql'">
+				convert(varchar(16),a.START_DATE_,120) startDate, 
+				convert(varchar(16),a.END_DATE_,120) endDate, 
+				convert(varchar(100),a.CREATE_TIME_,23) createTime,
+				convert(varchar(100),a.CREATE_TIME_,23) createDate, 
+			</if> 
+			MEETING_ROOM_UID_ meetingRoomUid, 
+			CREATE_TIME_, CREATE_USER_ createUser, 
+			(select PICTURE_ from ORG_USER where ID_=a.CREATE_USER_) picture, SUMMARY_ summary, 
+			(select USER_NAME_ from ORG_USER where ID_=a.CREATE_USER_) createUserName, CONTENT_ description, 
+			(select NAME_ from T_MEETING_ROOM where id_ = a.MEETING_ROOM_UID_) meetingRoomName, 
+			(select STATUS_ from T_MEETING_USER where PARENT_UID_ = a.id_ and USER_UID_ = #{userUid} and TYPE_ = 2) status, 
+			(select IS_LIKE_ from T_MSG_LOOKANDLIKE where BUSINESS_KEY_=a.ID_ and USER_UID_ = #{userUid}) isLike  
+			from T_MEETING a where id_ = #{id}
+	</select>
+	
+	<resultMap type="java.util.HashMap" id="meetingPersonnel">
+		<id property="id" column="id" />
+		<collection property="meetingPersonnel" column="{parentId = id}"  javaType="java.util.List"  select="searchMeetingPersonnel" />
+		<collection property="meetingTask" column="{parentId = id}"  javaType="java.util.List"  select="searchMeetingTask" />
+	</resultMap>
+	
+	
+	<!-- 查询发起人与参会人 -->
+	<select id="searchMeetingPersonnel" resultType="java.util.HashMap" >
+		select USER_UID_ id, USER_NAME_ userName, STATUS_ status, 
+		(select PICTURE_ from ORG_USER where ID_=a.USER_UID_) picture, TYPE_ type 
+		from T_MEETING_USER a where PARENT_UID_ = #{parentId}
+	</select>
+	
+	
+	<!-- 查询会议任务 -->
+	<select id="searchMeetingTask" resultType="java.util.HashMap" >
+		select ID_ id, SN_ sn, PARENT_UID_ parentUid, SORT_ sort, PROJ_UID_ projUid, 
+		START_TIME_ startTime, END_TIME_ endTime, PRINCIPAL_NAME_ principalName,
+		(select COUNT(ID_) from t_meeting_feedback where PARENT_UID_=a.ID_) feedBackCount,
+		STATUS_ statusVal,
+		PRIORITY_ priority,
+		PRINCIPAL_UID_ principalUid, SUBJECT_ subject, CONTENT_ content, 
+		COPY_USER_UID_ copyUserUid, COPY_USER_NAME_ copyUserName, 
+		(select id_ from t_attachment where parent_id_ = a.id_) attachmentId 
+		from wx_work_order a where PARENT_UID_ = #{parentId} 
+	</select>
+	
+	
+	<resultMap type="java.util.HashMap" id="conferenceTask">
+		<id property="id" column="id" />
+		<collection property="meetingParticipant" column="{parentId = id}"  javaType="java.util.List"  select="searchMeetingParticipant" />
+	</resultMap>
+	
+	<!-- 查询会议参与人 -->
+	<select id="searchMeetingParticipant" resultType="java.util.HashMap">
+		select PROJ_UID_ projUid, USER_NAME_ userName, USER_UID_ userUid, TYPE_ type, 
+		(select picture_ from org_user where parent_id_ = a.USER_UID_) picture  
+		from wx_work_order_user a where WORK_ORDER_UID_ = #{parentId}
+	</select>
+	
+	
+	<!-- 删除会议人员 -->
+	<delete id="deletePersonnel" >
+		DELETE FROM T_MEETING_USER WHERE PARENT_UID_ = #{id}
+	</delete>
+	
+	
+	<!-- 删除会议 -->
+	<delete id="deleteMeeting">
+		DELETE FROM T_MEETING WHERE id_ = #{id}
+	</delete>
+	
+	
+	<!-- 查询会议室占用时间 -->
+	<select id="checkMeetingOccupationTime" resultType="Integer">
+		<if test="dbType == 'mssql'">
+			select count(id_)
+			from T_MEETING where 
+			convert(varchar(16),START_DATE_,120) > #{startDate}  
+			and convert(varchar(16),END_DATE_,120) <![CDATA[ <  ]]>  #{endDate} 
+			or #{endDate} between convert(varchar(16),START_DATE_,120) and convert(varchar(16),END_DATE_,120)
+			and MEETING_ROOM_UID_ = #{id}
+		</if>
+		
+		<if test="dbType == 'mysql'">
+			select count(id_)
+			from T_MEETING where 
+			DATE_FORMAT(START_DATE_, '%Y-%m-%d %H:%i') > #{startDate}  
+			and DATE_FORMAT(END_DATE_, '%Y-%m-%d %H:%i') <![CDATA[ <  ]]>  #{endDate} 
+			or #{endDate} between DATE_FORMAT(START_DATE_, '%Y-%m-%d %H:%i') and DATE_FORMAT(END_DATE_, '%Y-%m-%d %H:%i')
+			and MEETING_ROOM_UID_ = #{id}
+		</if>
+		
+	</select>
+	
+	
+	<!-- 更新当前人签到状态 -->
+	<update id="updateMeetingUserStatus">
+		UPDATE T_MEETING_USER SET STATUS_ = #{status} WHERE PARENT_UID_ = #{id} and USER_UID_ = #{userId}
+	</update>
+	
+	
+	<!-- 查询会议任务参与人 -->
+	<select id="searchMeetingcopyUser" resultType="java.util.HashMap">
+		SELECT ID_ id, USER_NAME_ userName, PICTURE_ picture FROM ORG_USER WHERE ID_ IN
+		<foreach collection="copyUser" index="index" item="item" open="(" separator="," close=")">
+                #{item}       
+        </foreach> 
+	</select>
+	
+</mapper> 

@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.LaborContractDao">
+
+    <!--插入-->
+    <insert id="addBatchLaborContract" parameterType="java.util.List">
+        INSERT INTO R_LABOR_CONTRACT ( ID_, PROJ_UID_, TEAM_UID_, WORKER_UID_, CODE_, TYPE_, START_TIME_, END_TIME_,
+        SALARY_METHOD_, UNIT_OF_MEASUREMENT_, UNIT_PRICE_OF_MEASUREMENT_, CREATE_USER_,
+        CREATE_TIME_,UPDATE_USER_,UPDATE_TIME_,SUB_COMPANY_,COMPANY_ )
+        VALUES
+        <foreach collection="dataList" item="item" index="index" separator=",">
+            (
+            #{ item.id,jdbcType = VARCHAR},
+            #{ item.projUid,jdbcType = VARCHAR},
+            #{ item.teamUid,jdbcType = VARCHAR},
+            #{ item.workerUid,jdbcType = VARCHAR},
+            #{ item.code,jdbcType = VARCHAR},
+            #{ item.type,jdbcType = VARCHAR},
+            #{ item.startTime,jdbcType = TIMESTAMP},
+            #{ item.endTime,jdbcType = TIMESTAMP},
+            #{ item.salaryMethod,jdbcType = VARCHAR},
+            #{ item.unitOfMeasurement,jdbcType = VARCHAR},
+            #{ item.unitPriceOfMeasurement,jdbcType = VARCHAR},
+            #{ item.createUser,jdbcType = VARCHAR },
+            #{ item.createTime,jdbcType = TIMESTAMP},
+            #{ item.updateUser,jdbcType = VARCHAR},
+            #{ item.updateTime,jdbcType = TIMESTAMP},
+            #{ item.subCompany,jdbcType = VARCHAR},
+            #{ item.company,jdbcType = VARCHAR}
+            )
+        </foreach>
+    </insert>
+
+    <!--更新合同信息-->
+    <update id="updBatchLaborContract">
+        UPDATE R_LABOR_CONTRACT
+        SET CODE_ = #{code},
+        TYPE_ = #{type},
+        START_TIME_ = #{startTime},
+        END_TIME_ = #{endTime},
+        SALARY_METHOD_ = #{salaryMethod},
+        UNIT_OF_MEASUREMENT_ = #{unitOfMeasurement},
+        UNIT_PRICE_OF_MEASUREMENT_ = #{unitPriceOfMeasurement},
+        UPDATE_USER_ = #{updateUser},
+        UPDATE_TIME_ = #{updateTime}
+        WHERE ID_ IN
+        <foreach collection="dataList" item="item" index="index" open="(" close=")" separator=",">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <!--获取劳动合同列表-->
+    <select id="getLaborContractList" resultType="java.util.HashMap">
+        SELECT
+        DATA_1.WORKER_UID_ AS workerUid,
+        DATA_1.NAME_ AS name,
+        DATA_1.CELLPHONE_ AS cellphone,
+        DATA_1.IDCARD_NUMBER_ AS birthPlaceCode,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeCode,
+        DATA_1.ID_ AS id,
+        DATA_1.CODE_ AS code,
+        format(DATA_1.START_TIME_,'yyyy-MM-dd') startTime,
+        format(DATA_1.END_TIME_,'yyyy-MM-dd') endTime,
+        DATA_1.SALARY_METHOD_ AS salaryMethod,
+        DATA_1.UNIT_OF_MEASUREMENT_ AS unitOfMeasurement,
+        DATA_1.UNIT_PRICE_OF_MEASUREMENT_ AS unitPriceOfMeasurement
+        FROM
+        (
+        SELECT
+        ROW_NUMBER () OVER ( ORDER BY R_WORKER_INFO.CREATE_TIME_ DESC ) AS Rownumver,
+        R_WORKER_INFO.ID_ AS WORKER_UID_,
+        R_WORKER_INFO.NAME_,
+        R_WORKER_INFO.CELLPHONE_,
+        R_WORKER_INFO.IDCARD_NUMBER_,
+        R_WORKER_INFO.WORK_TYPE_CODE_,
+        R_WORKER_INFO.CREATE_TIME_,
+        R_LABOR_CONTRACT.ID_,
+        R_LABOR_CONTRACT.CODE_,
+        R_LABOR_CONTRACT.START_TIME_,
+        R_LABOR_CONTRACT.END_TIME_,
+        R_LABOR_CONTRACT.SALARY_METHOD_,
+        R_LABOR_CONTRACT.UNIT_OF_MEASUREMENT_,
+        R_LABOR_CONTRACT.UNIT_PRICE_OF_MEASUREMENT_
+        FROM
+        R_PROJECT_WORKER
+        LEFT JOIN R_WORKER_INFO ON ( R_PROJECT_WORKER.WORKER_UID_ = R_WORKER_INFO.ID_ )
+        LEFT JOIN R_LABOR_CONTRACT ON ( R_PROJECT_WORKER.PROJ_UID_ = R_LABOR_CONTRACT.PROJ_UID_ AND
+        R_PROJECT_WORKER.TEAM_UID_ = R_LABOR_CONTRACT.TEAM_UID_ AND R_PROJECT_WORKER.WORKER_UID_ =
+        R_LABOR_CONTRACT.WORKER_UID_ )
+        WHERE
+        R_PROJECT_WORKER.COMPANY_ = #{companyUid}
+        AND R_PROJECT_WORKER.PROJ_UID_ = #{projUid}
+        AND R_PROJECT_WORKER.TEAM_UID_ = #{teamUid}
+        <if test="entryExitFlag != null and entryExitFlag != ''">
+            AND R_PROJECT_WORKER.ENTRY_STATUS_ = #{entryExitFlag}
+        </if>
+        ) DATA_1
+        WHERE
+        ( DATA_1.Rownumver BETWEEN #{startIndex} AND #{endIndex} )
+        ORDER BY
+        DATA_1.CREATE_TIME_ DESC
+    </select>
+    
+    
+    <!--获取劳动合同列表(MySql)-->
+    <select id="getLaborContractListMySql" resultType="java.util.HashMap">
+        SELECT
+        DATA_1.WORKER_UID_ AS workerUid,
+        DATA_1.NAME_ AS name,
+        DATA_1.CELLPHONE_ AS cellphone,
+        DATA_1.IDCARD_NUMBER_ AS birthPlaceCode,
+        DATA_1.WORK_TYPE_CODE_ AS workTypeCode,
+        DATA_1.ID_ AS id,
+        DATA_1.CODE_ AS code,
+        DATE_FORMAT(DATA_1.START_TIME_,'%Y-%m-%d') startTime,
+        DATE_FORMAT(DATA_1.END_TIME_,'%Y-%m-%d') endTime,
+        DATA_1.SALARY_METHOD_ AS salaryMethod,
+        DATA_1.UNIT_OF_MEASUREMENT_ AS unitOfMeasurement,
+        DATA_1.UNIT_PRICE_OF_MEASUREMENT_ AS unitPriceOfMeasurement
+        FROM
+        (
+        SELECT
+        R_WORKER_INFO.ID_ AS WORKER_UID_,
+        R_WORKER_INFO.NAME_,
+        R_WORKER_INFO.CELLPHONE_,
+        R_WORKER_INFO.IDCARD_NUMBER_,
+        R_WORKER_INFO.WORK_TYPE_CODE_,
+        R_WORKER_INFO.CREATE_TIME_,
+        R_LABOR_CONTRACT.ID_,
+        R_LABOR_CONTRACT.CODE_,
+        R_LABOR_CONTRACT.START_TIME_,
+        R_LABOR_CONTRACT.END_TIME_,
+        R_LABOR_CONTRACT.SALARY_METHOD_,
+        R_LABOR_CONTRACT.UNIT_OF_MEASUREMENT_,
+        R_LABOR_CONTRACT.UNIT_PRICE_OF_MEASUREMENT_
+        FROM
+        R_PROJECT_WORKER
+        LEFT JOIN R_WORKER_INFO ON ( R_PROJECT_WORKER.WORKER_UID_ = R_WORKER_INFO.ID_ )
+        LEFT JOIN R_LABOR_CONTRACT ON ( R_PROJECT_WORKER.PROJ_UID_ = R_LABOR_CONTRACT.PROJ_UID_ AND
+        R_PROJECT_WORKER.TEAM_UID_ = R_LABOR_CONTRACT.TEAM_UID_ AND R_PROJECT_WORKER.WORKER_UID_ =
+        R_LABOR_CONTRACT.WORKER_UID_ )
+        WHERE
+        R_PROJECT_WORKER.COMPANY_ = #{companyUid}
+        AND R_PROJECT_WORKER.PROJ_UID_ = #{projUid}
+        AND R_PROJECT_WORKER.TEAM_UID_ = #{teamUid}
+        <if test="entryExitFlag != null and entryExitFlag != ''">
+            AND R_PROJECT_WORKER.ENTRY_STATUS_ = #{entryExitFlag}
+        </if>
+        ) DATA_1
+        ORDER BY
+        DATA_1.CREATE_TIME_ DESC limit #{startIndex}, #{endIndex}
+    </select>
+
+    <!--获取劳动合同总数-->
+    <select id="getLaborContractTotalCount" resultType="int">
+        SELECT
+        COUNT(R_WORKER_INFO.NAME_)
+        FROM
+        R_PROJECT_WORKER
+        LEFT JOIN R_WORKER_INFO ON ( R_PROJECT_WORKER.WORKER_UID_ = R_WORKER_INFO.ID_ )
+        LEFT JOIN R_LABOR_CONTRACT ON ( R_PROJECT_WORKER.PROJ_UID_ = R_LABOR_CONTRACT.PROJ_UID_ AND
+        R_PROJECT_WORKER.TEAM_UID_ = R_LABOR_CONTRACT.TEAM_UID_ AND R_PROJECT_WORKER.WORKER_UID_ =
+        R_LABOR_CONTRACT.WORKER_UID_ )
+        WHERE
+        R_PROJECT_WORKER.COMPANY_ = #{companyUid}
+        AND R_PROJECT_WORKER.PROJ_UID_ = #{projUid}
+        AND R_PROJECT_WORKER.TEAM_UID_ = #{teamUid}
+        <if test="entryExitFlag != null and entryExitFlag != ''">
+            AND R_PROJECT_WORKER.ENTRY_STATUS_ = #{entryExitFlag}
+        </if>
+    </select>
+
+    <!-- 根据项目编号来查询得到合同相关的信息-->
+    <select id="getLaborContractByProjUid" resultType="java.util.HashMap">
+        SELECT rwi.IDCARD_NUMBER_,rlc.START_TIME_,rlc.END_TIME_,rlc.UNIT_PRICE_OF_MEASUREMENT_ FROM R_LABOR_CONTRACT rlc INNER JOIN R_WORKER_INFO rwi ON rlc.WORKER_UID_=rwi.ID_ WHERE rlc.PROJ_UID_=#{projUid};
+    </select>
+</mapper>

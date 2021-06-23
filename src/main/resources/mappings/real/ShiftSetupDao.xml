@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.ShiftSetupDao">
+
+    <!--获取班次列表-->
+    <select id="getShiftSetupList" resultType="java.util.HashMap">
+        SELECT
+            ID_ AS id,
+            PROJ_UID_ AS projUid,
+            SHIFTS_NAME_ AS shiftsName,
+            SHIFTS_COLOUR_ AS shiftsColour,
+            FIRST_ATTENDANCE_TIME_UP_ AS firstAttendanceTimeUp,
+            FIRST_ATTENDANCE_TIME_DOWN_ AS firstAttendanceTimeDown,
+            SECOND_ATTENDANCE_TIME_UP_ AS secondAttendanceTimeUp,
+            SECOND_ATTENDANCE_TIME_DOWN_ AS secondAttendanceTimeDown,
+            THIRD_ATTENDANCE_TIME_UP_ AS thirdAttendanceTimeUp,
+            THIRD_ATTENDANCE_TIME_DOWN_ AS thirdAttendanceTimeDown,
+            IS_OVERTIME_ AS isOvertime,
+            SIGN_IN_ALLOW_LATE_ AS signInAllowLate,
+            SIGN_IN_ALLOW_ADVANCE_ AS signInAllowAdvance,
+            SIGN_BACK_ALLOW_LEAVE_EARLY_ AS signBackAllowLeaveEarly,
+            SIGN_BACK_ALLOW_POSTPONE_ AS signBackAllowPostpone,
+            ABSENTEEISM_ AS absenteeism
+        FROM
+          R_SHIFTS_SETUP
+        WHERE
+          PROJ_UID_ = #{projUid}
+          AND COMPANY_ = #{companyUid}
+        ORDER BY
+          UPDATE_TIME_ DESC
+    </select>
+</mapper>

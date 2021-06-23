@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jrsoft.engine.db.mapping.org.LoginDao">
+
+
+  <!--SELECT id,username userId,name userName,password from hr where username=#{userId}-->
+  <select id="loadUserByUsername"  resultType="com.jrsoft.engine.model.org.OrgUser">
+    select ID_ id,USER_ID_ userId,USER_NAME_ userName,PWD_ password,COMPANY_ company from ORG_USER where USER_ID_ = #{userId,jdbcType=VARCHAR}
+  </select>
+
+  <select id="getUserRoleList" resultType="OrgRole">
+    select r.ID_ id,r.ROLE_ID_ roleId,r.ROLE_NAME_ roleName from org_role r left join org_user_role ur on r.ID_=ur.ROLE_UID_
+    left join org_user u on u.ID_=ur.USER_UID_ where u.id_=#{userUid}
+
+  </select>
+
+  <!--获取用户所在公司-->
+  <select id="getCompanyByUser" resultType="OrgDepart">
+    select id_ id,depart_name_ departName from org_depart where id_=#{companyUid}
+  </select>
+
+</mapper>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.real.dao.SalaryDao">
+
+    <!--获取薪资统计列表-->
+    <select id="getSalaryList" resultType="java.util.HashMap">
+        SELECT
+        DATA_.ID_ AS id,
+        DATA_.MONTH_OF_ISSUE_ AS monthOfIssue,
+        COUNT( DATA_.WORKER_NAME_) AS workerNameCount,
+		<if test="dbType == 'mysql'">
+			round(SUM(DATA_.AMOUNT_PAYABLE_), 2) AS amountPayableSum,
+	        round(SUM(DATA_.ACTUAL_AMOUNT_), 2) AS actualAmountSum
+		</if>
+
+		<if test="dbType == 'mssql'">
+	        Convert(decimal(18,2),SUM ( DATA_.AMOUNT_PAYABLE_)) AS amountPayableSum,
+	        Convert(decimal(18,2),SUM ( DATA_.ACTUAL_AMOUNT_)) AS actualAmountSum
+		</if>
+        FROM
+        (
+        SELECT
+        A.ID_,
+        A.MONTH_OF_ISSUE_,
+        B.WORKER_NAME_,
+        B.AMOUNT_PAYABLE_,
+        B.ACTUAL_AMOUNT_
+        FROM
+        R_SALARY A
+        LEFT JOIN R_SALARY_DATEIL B ON ( A.ID_ = B.SALARY_UID_ )
+        WHERE
+        A.COMPANY_ = #{companyUid}
+        AND A.PROJ_UID_ = #{projUid}
+        <if test="monthOfIssue != null and monthOfIssue != ''">
+            AND A.MONTH_OF_ISSUE_ = #{monthOfIssue}
+        </if>
+        ) DATA_
+        GROUP BY
+        DATA_.ID_,
+        DATA_.MONTH_OF_ISSUE_
+        ORDER BY DATA_.MONTH_OF_ISSUE_ DESC
+    </select>
+
+    <!-- 根据项目编号来获取工资单信息列表 -->
+    <select id="getsalaryListByProjUid" resultType="java.util.HashMap">
+        SELECT *, (select PROJECT_CODE_ from WX_PROJECT where id_ = a.PROJ_UID_) projectCode
+        FROM R_SALARY a WHERE PROJ_UID_= #{projUid}
+    </select>
+
+    <!-- 根据项目编号来获取工资单详细信息列表 -->
+    <select id="getsalaryDateilListByProjUid" resultType="java.util.HashMap">
+        SELECT rsd.IDCARD_NUMBER_,rsd.ATTENDANCE_DAYS_NUM_,rsd.TOTAL_WORKING_HOURS_,rsd.AMOUNT_PAYABLE_,rsd.ACTUAL_AMOUNT_,rsd.WHETHER_TO_REISSUE_,rsd.DATE_OF_ISSUE_ FROM R_SALARY rs INNER JOIN R_SALARY_DATEIL rsd ON rs.ID_=rsd.SALARY_UID_ WHERE rs.PROJ_UID_=#{projUid}
+    </select>
+</mapper>

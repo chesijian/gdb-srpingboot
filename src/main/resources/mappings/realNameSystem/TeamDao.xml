@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.modules.realNameSystem.dao.TeamDao">
+    <!--分页查询列表-->
+    <select id="findPage" resultType="java.util.HashMap">
+		SELECT  * FROM (SELECT
+			C.ID_ AS id,
+			C.TEAM_NAME_ AS name,
+			C.RESPONSIBLE_PERSON_NAME_ AS responsiblePersonName,
+			( SELECT DISTINCT COUNT ( 1 ) FROM R_PROJECT_WORKER WHERE TEAM_UID_ = C.ID_ AND COMPANY_ = #{company} and PROJ_UID_ = #{projUid} ) AS teamMemberNum,--班组人数
+			ROW_NUMBER () OVER ( ORDER BY D.CREATE_TIME_ ASC ) AS rowId,
+			D.CREATE_TIME_ AS CREATE_TIME_,
+			( SELECT COUNT ( 1 ) FROM R_TEAM_MASTER WHERE COMPANY_ = #{company} AND PROJ_UID_ = #{projUid} ) AS totalCount --总记录数
+		FROM
+			(
+			SELECT
+				A.ID_,
+				A.TEAM_NAME_,
+				A.RESPONSIBLE_PERSON_NAME_
+			FROM
+				R_TEAM_MASTER A
+				LEFT JOIN R_PROJECT_WORKER B ON ( A.ID_= B.TEAM_UID_ )
+			WHERE
+				A.COMPANY_= #{company}
+				AND A.PROJ_UID_= #{projUid}
+			GROUP BY
+				A.ID_,
+				A.TEAM_NAME_,
+				A.RESPONSIBLE_PERSON_NAME_
+			) C
+			LEFT JOIN R_TEAM_MASTER D ON (
+			C.ID_ = D.ID_)) data WHERE rowId
+         BETWEEN #{rowBegin}
+         AND #{rowEnd}
+        ORDER BY data.CREATE_TIME_ DESC
+	</select>
+	
+	
+	 <!--分页查询列表(MySql)-->
+    <select id="findPageMySql" resultType="java.util.HashMap">
+		SELECT  * FROM (
+			SELECT C.ID_ AS id, C.TEAM_NAME_ AS name,
+			C.RESPONSIBLE_PERSON_NAME_ AS responsiblePersonName,
+			(SELECT DISTINCT COUNT(1) FROM R_PROJECT_WORKER WHERE TEAM_UID_ = C.ID_ AND COMPANY_ = #{company} and PROJ_UID_ = #{projUid} ) AS teamMemberNum,<!-- 班组人数 -->
+			<!-- ROW_NUMBER () OVER ( ORDER BY D.CREATE_TIME_ ASC ) AS rowId, -->
+			D.CREATE_TIME_ AS CREATE_TIME_,
+			(SELECT COUNT( 1 ) FROM R_TEAM_MASTER WHERE COMPANY_ = #{company} AND PROJ_UID_ = #{projUid} ) AS totalCount <!-- 总记录数 -->
+		FROM
+			(
+			SELECT
+				A.ID_,
+				A.TEAM_NAME_,
+				A.RESPONSIBLE_PERSON_NAME_
+			FROM
+				R_TEAM_MASTER A
+				LEFT JOIN R_PROJECT_WORKER B ON ( A.ID_= B.TEAM_UID_ )
+			WHERE
+				A.COMPANY_= #{company}
+				AND A.PROJ_UID_= #{projUid}
+			GROUP BY
+				A.ID_,
+				A.TEAM_NAME_,
+				A.RESPONSIBLE_PERSON_NAME_
+			) C
+			LEFT JOIN R_TEAM_MASTER D ON (
+			C.ID_ = D.ID_)) data 
+        ORDER BY data.CREATE_TIME_ DESC LIMIT #{rowBegin}, #{rowEnd}
+	</select>
+	
+	
+    <!--获取实体Map-->
+    <select id="findByCondition" resultType="java.util.HashMap">
+		SELECT
+			*
+		FROM
+			R_TEAM_MASTER
+		WHERE
+			PROJECT_CODE_ = #{projectCode}
+		AND COMPANY_= #{company}
+		AND TEAM_NAME_= #{teamName}
+	</select>
+    <!--获取班组人员数量-->
+    <select id="findMemberCount" resultType="java.util.HashMap">
+		SELECT
+			COUNT(1) as count
+		FROM
+			R_PROJECT_WORKER
+		WHERE
+			TEAM_UID_=#{teamUid}
+	</select>
+</mapper>
