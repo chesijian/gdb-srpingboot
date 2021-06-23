@@ -5,9 +5,7 @@ package com.jrsoft.engine.base.domain.sys;/**
 import com.jrsoft.engine.model.org.OrgRole;
 import lombok.Data;
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.util.List;
 
 /**
@@ -18,8 +16,11 @@ import java.util.List;
  * @Version 1.0
  */
 @Data
+@Entity
+@Table(name="t_test_menu")
 public class PfMenu {
 
+    @Id
     private String id;
     private String name;
     private String parentId;
@@ -27,6 +28,8 @@ public class PfMenu {
     private String code;
     private String pattern;
     private Integer resourceType;
+    @Transient
     private List<OrgRole> roleList;
+    @Transient
     private List<PfMenu> children;
 }

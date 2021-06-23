@@ -3,11 +3,14 @@ package com.jrsoft.engine.service.impl;/**
  */
 
 import com.jrsoft.engine.base.domain.sys.PfMenu;
+import com.jrsoft.engine.dao.PfMenuDao;
 import com.jrsoft.engine.service.MenuService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @ClassName MenuServiceImpl
@@ -18,6 +21,9 @@ import java.util.List;
  */
 @Service
 public class MenuServiceImpl implements MenuService {
+
+    @Autowired
+    private PfMenuDao pfMenuDao;
 
     @Override
     public List<PfMenu> getAllMenus() {
@@ -30,6 +36,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public PfMenu getMenuById(String id) {
-        return null;
+        //Optional<PfMenu> byId = pfMenuDao.findById(id);
+        return pfMenuDao.getMenuById(id);
     }
 }
