@@ -21,6 +21,7 @@ import java.util.List;
 public class PfMenu {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private String id;
     private String name;
     private String parentId;
@@ -28,6 +29,7 @@ public class PfMenu {
     private String code;
     private String pattern;
     private Integer resourceType;
+    private boolean enable;
     @Transient
     private List<OrgRole> roleList;
     @Transient

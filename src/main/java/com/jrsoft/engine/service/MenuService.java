@@ -12,4 +12,10 @@ public interface MenuService {
     List<PfMenu> getAllMenus();
 
     PfMenu getMenuById(String id);
+
+    /**
+     * 新增菜单
+     * @param entity
+     */
+    void insertMenu(PfMenu entity);
 }

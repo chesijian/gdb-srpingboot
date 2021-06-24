@@ -35,8 +35,14 @@ public class MenuServiceImpl implements MenuService {
     }
 
     @Override
+    public void insertMenu(PfMenu entity) {
+        pfMenuDao.save(entity);
+    }
+
+    @Override
     public PfMenu getMenuById(String id) {
         //Optional<PfMenu> byId = pfMenuDao.findById(id);
         return pfMenuDao.getMenuById(id);
     }
+
 }

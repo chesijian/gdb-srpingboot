@@ -12,6 +12,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.persistence.Column;
+import javax.persistence.Entity;
+
 /**
  * 进度任务实体
  * @author eric
@@ -20,20 +23,20 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-//@Entity(name = "GA_TASK")
+@Entity(name = "GA_TASK")
 public class Task extends BaseEntity{
 	
 
 	@ApiModelProperty(value="进度id",name="code", dataType="String")
-//	@Column(name = "CODE_", length = 36)
+	@Column(name = "CODE_", length = 36)
 	private String code;		//CODE_
 	
 	@ApiModelProperty(value="名称",name="text", dataType="String")
-//	@Column(name = "TEXT_", length = 200)
+	@Column(name = "TEXT_", length = 200)
 	private String text;		
 	
 	@ApiModelProperty(value="计划开始日期",name="startDate", dataType="Date")
-//	@Column(name = "START_DATE_")
+	@Column(name = "START_DATE_")
 	private String startDate;	//
 	
 	@ApiModelProperty(value="计划结束日期",name="endDate", dataType="Date")

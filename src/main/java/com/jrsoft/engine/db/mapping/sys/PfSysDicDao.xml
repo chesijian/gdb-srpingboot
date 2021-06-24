@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.jrsoft.engine.dao.PfSysDicDao">
+
+    <resultMap id="ResultMap" type="com.jrsoft.engine.base.domain.sys.DicTreeNode" >
+        <id property="id" column="ID_"  javaType="java.lang.String" jdbcType="VARCHAR"/>
+        <result property="text" column="TEXT_"  javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result property="code" column="CODE_"  javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result property="type" column="TYPE_"  javaType="java.lang.Integer" jdbcType="INTEGER" />
+        <result property="leaf" column="LEAF_"  javaType="java.lang.Boolean" jdbcType="BOOLEAN" />
+        <result property="sort" column="SORT_"  javaType="java.lang.Double" jdbcType="DOUBLE" />
+        <result property="parentId" column="PARENT_ID_"  javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result column="CREATE_USER_" property="createUser" javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result column="CREATE_TIME_" property="createTime" javaType="java.util.Date" jdbcType="TIMESTAMP" />
+        <result column="UPDATE_USER_" property="updateUser" javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result column="UPDATE_TIME_" property="updateTime" javaType="java.util.Date" jdbcType="TIMESTAMP" />
+        <result column="SUB_COMPANY_" property="subCompany" javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result column="COMPANY_" property="company" javaType="java.lang.String" jdbcType="VARCHAR" />
+    </resultMap>
+
+
+    <select id="findTree" resultMap="ResultMap">
+        select ID_,TEXT_,CODE_,TYPE_,SORT_,LEAF_,ENABLE_,PARENT_ID_
+		,(select TEXT_ from PF_SYS_TREE T where T.ID_ = RES.PARENT_ID_)as PARENT_TEXT_
+	    from PF_SYS_TREE RES
+        <where>
+            1=1
+            <choose>
+                <when test="parentId != null">
+                    and RES.PARENT_ID_ = #{parentId}
+                </when>
+                <otherwise>
+                    and RES.PARENT_ID_ is null
+                </otherwise>
+            </choose>
+
+            <if test="type != null">
+                and RES.TYPE_ = #{type}
+            </if>
+            <if test="enable != null">
+                and RES.ENABLE_ = #{enable}
+            </if>
+        </where>
+        order by SORT_
+    </select>
+
+
+    <!-- PfSysTree SELECT 系统配置时递归查询所有节点 -->
+    <resultMap id="DeepResultMap" type="com.jrsoft.engine.base.domain.sys.DicTreeNode" >
+        <id property="id" column="ID_"  javaType="java.lang.String" jdbcType="VARCHAR"/>
+        <result property="text" column="TEXT_"  javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result property="code" column="CODE_"  javaType="java.lang.String" jdbcType="VARCHAR" />
+        <result property="type" column="TYPE_"  javaType="java.lang.Integer" jdbcType="INTEGER" />
+        <result property="enable" column="ENABLE_"  javaType="java.lang.Integer" jdbcType="INTEGER" />
+        <result property="leaf" column="LEAF_"  javaType="java.lang.Boolean" jdbcType="BOOLEAN" />
+        <result property="sort" column="SORT_"  javaType="java.lang.Double" jdbcType="DOUBLE" />
+        <result property="parentId" column="PARENT_ID_"  javaType="java.lang.String" jdbcType="VARCHAR" />
+        <collection property="children" column="parentId=ID_,type=TYPE_,enable=ENABLE_" select="findTreeDeep"  ofType="com.jrsoft.engine.modules.sys.tree.model.TreeNode"/>
+    </resultMap>
+
+    <select id="findTreeDeep" resultMap="DeepResultMap">
+        select ID_,TEXT_,CODE_,TYPE_,SORT_,LEAF_,ENABLE_,PARENT_ID_
+        ,(select TEXT_ from PF_SYS_TREE T where T.ID_ = RES.PARENT_ID_)as PARENT_TEXT_
+        from PF_SYS_TREE RES
+        <where>
+            1=1
+            <choose>
+                <when test="parentId != null">
+                    and RES.PARENT_ID_ = #{parentId}
+                </when>
+                <otherwise>
+                    and RES.PARENT_ID_ is null
+                </otherwise>
+            </choose>
+
+            <if test="type != null">
+                and RES.TYPE_ = #{type}
+            </if>
+            <!--<if test="enable != null">-->
+                <!--and RES.ENABLE_ = #{enable}-->
+            <!--</if>-->
+        </where>
+        order by SORT_
+    </select>
+
+
+
+</mapper>
