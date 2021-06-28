@@ -87,4 +87,45 @@ public class MenuController {
             return returnJson;
         }
     }
+
+    /**
+     *
+     * 修改菜单
+     * @author Blueeyedboy
+     * @create 2017/7/5 17:56
+     **/
+    @ApiOperation(value="修改菜单", notes="修改菜单")
+    @ApiImplicitParams({
+            @ApiImplicitParam(name = "id", value = "主键", required = true, dataType = "String",paramType = "path"),
+            @ApiImplicitParam(name = "entity", value = "详细实体", required = true, dataType = "PfMenuPo",paramType = "body")
+    })
+    @PutMapping("/menus/{id}")
+    public ReturnJson putMenu(@PathVariable String id, @RequestBody PfMenu entity) {
+        ReturnJson returnJson = null;
+        try{
+            if(!CommonUtil.ifNotEmpty(id)){
+                throw new EngineIllegalArgumentException("id can not be null");
+            }
+            if(!CommonUtil.ifNotEmpty(entity.getTitle())){
+                throw new EngineIllegalArgumentException("菜单名称不能为空");
+            }
+            if(!CommonUtil.ifNotEmpty(entity.isEnable())){
+                entity.setEnable(true);
+            }
+            entity.setId(id);
+            menuService.updateMenu(entity);
+            // 修改菜单时清空url数据
+            //clearCache();
+            returnJson = ReturnJson.ok(entity.getId());
+        }catch (EngineException e){
+            e.printStackTrace();
+            returnJson = ReturnJson.error(e.errcode,e.getMessage());
+        }catch (Exception e){
+            e.printStackTrace();
+            returnJson = ReturnJson.error(EngineException.ERRCODE_EXCEPTION,e.getMessage());
+        }finally {
+            return returnJson;
+        }
+
+    }
 }

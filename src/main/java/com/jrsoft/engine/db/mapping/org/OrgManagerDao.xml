@@ -36,7 +36,9 @@
 
   <!--查询菜单-->
   <select id="findMenusByParentId" resultType="PfMenu">
-    SELECT ID_ id,CODE_ code,TITLE_ title,TYPE_ type,ENABLE_ enable,FORM_KEY_ formKey,PARENT_ID_ parentId  FROM PF_MENU RES
+    SELECT ID_ id,CODE_ code,TITLE_ title,TYPE_ type,ENABLE_ enable,FORM_KEY_ formKey,PARENT_ID_ parentId,URI_ uri,
+    PATH_ path,MOBILE_PATH_ mobilePath,ICON_ icon
+    FROM PF_MENU RES order by SORT_
   </select>
 
 </mapper>

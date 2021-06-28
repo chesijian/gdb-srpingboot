@@ -3,6 +3,7 @@ package com.jrsoft.engine.service.impl;/**
  */
 
 import com.jrsoft.engine.base.domain.sys.PfMenu;
+import com.jrsoft.engine.common.utils.CommonUtil;
 import com.jrsoft.engine.dao.PfMenuDao;
 import com.jrsoft.engine.service.MenuService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +37,8 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public void insertMenu(PfMenu entity) {
-        pfMenuDao.save(entity);
+        entity.setId(CommonUtil.getUUID());
+        pfMenuDao.insertMenu(entity);
     }
 
     @Override
@@ -45,4 +47,12 @@ public class MenuServiceImpl implements MenuService {
         return pfMenuDao.getMenuById(id);
     }
 
+    /**
+     * 修改菜单
+     * @param entity
+     */
+    @Override
+    public void updateMenu(PfMenu entity) {
+        pfMenuDao.updatePfMenu(entity);
+    }
 }

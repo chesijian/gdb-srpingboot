@@ -18,4 +18,10 @@ public interface MenuService {
      * @param entity
      */
     void insertMenu(PfMenu entity);
+
+    /**
+     * 修改菜单
+     * @param entity
+     */
+    void updateMenu(PfMenu entity);
 }

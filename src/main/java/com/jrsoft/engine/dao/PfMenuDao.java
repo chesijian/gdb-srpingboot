@@ -11,4 +11,12 @@ public interface PfMenuDao extends JpaRepository<PfMenu,String> {
      * @return
      */
     PfMenu getMenuById(@Param("id") String id);
+
+    /**
+     * 新增菜单
+     * @param entity
+     */
+    void insertMenu(PfMenu entity);
+
+    void updatePfMenu(PfMenu entity);
 }
