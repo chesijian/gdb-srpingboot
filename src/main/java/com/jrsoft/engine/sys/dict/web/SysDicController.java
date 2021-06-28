@@ -1,4 +1,4 @@
-package com.jrsoft.engine.web;
+package com.jrsoft.engine.sys.dict.web;
 
 import com.jrsoft.engine.base.domain.sys.DicTreeNode;
 import com.jrsoft.engine.base.model.ReturnJson;

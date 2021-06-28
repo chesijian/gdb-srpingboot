@@ -4,6 +4,7 @@ import com.jrsoft.engine.base.domain.BaseEntity;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.ParameterizedType;
@@ -17,7 +18,7 @@ import java.util.List;
  * @author Blueeyedboy
  * @create 2018-10-13 15:54
  **/
-public abstract class BaseServiceImpl<T extends BaseEntity> implements BaseService<T > {
+public abstract class BaseServiceImpl<T extends BaseEntity, R extends JpaRepository> implements BaseService<T > {
 
 
 	/*@Autowired
