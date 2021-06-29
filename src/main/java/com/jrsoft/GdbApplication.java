@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Configuration;
 
 @SpringBootApplication
-@MapperScan({"com.jrsoft.business.modules","com.jrsoft.engine.db.mapping.org","com.jrsoft.engine.dao"}) //mapper接口扫描
+@MapperScan({"com.jrsoft.business.modules","com.jrsoft.engine"}) //mapper接口扫描
 //@MapperScan(basePackages = "com.jrsoft.business.modules")
 //@MapperScan("com.jrsoft.business.modules")
 @Configuration

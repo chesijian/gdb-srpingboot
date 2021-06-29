@@ -1,9 +1,11 @@
 package com.jrsoft.engine.config;
 
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-@EnableJpaRepositories(basePackages = "com.jrsoft.business.modules.progress.model")
+@EnableJpaRepositories(basePackages = {"com.jrsoft.business.modules.progress.model","com.jrsoft.engine"})
+@EntityScan(basePackages = {"com.jrsoft.engine","com.jrsoft.modules"})
 @Configuration
 public class JpaConfig {
 }
