@@ -1,14 +1,13 @@
 package com.jrsoft.engine.sys.dict.domin;
 
 import com.jrsoft.engine.base.domain.BaseEntity;
+import io.swagger.annotations.ApiModelProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Table;
-import javax.persistence.Transient;
+import javax.persistence.*;
 import java.util.List;
 
 @Data
@@ -16,7 +15,13 @@ import java.util.List;
 @NoArgsConstructor
 @Entity
 @Table( name ="pf_dic" )
-public class DicEntity extends BaseEntity {
+public class DicEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO, generator = "custom-uuid")
+    @ApiModelProperty(value="主键",name="id",hidden = true)
+    @Column(name = "ID_", length = 36, nullable = false)
+    private String id;
 
     @Column(name = "DIC_ID_")
     private String dicId;

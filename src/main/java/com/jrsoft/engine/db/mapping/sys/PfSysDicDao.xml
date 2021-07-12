@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
-<mapper namespace="com.jrsoft.engine.dao.PfSysDicDao">
+<mapper namespace="com.jrsoft.engine.sys.dict.dao.DicEntityDao">
+
+
+    <select id="getByDicId" resultType="com.jrsoft.engine.sys.dict.domin.DicEntity">
+        select ID_ id,DIC_ID_ dicId,DIC_NAME_ dicName,TYPE_,SORT_,DESCRIPTION_,ENABLE_,PARENT_ID_
+	    from pf_dic where DIC_ID_=#{dicId}
+    </select>
 
     <resultMap id="ResultMap" type="com.jrsoft.engine.base.domain.sys.DicTreeNode" >
         <id property="id" column="ID_"  javaType="java.lang.String" jdbcType="VARCHAR"/>

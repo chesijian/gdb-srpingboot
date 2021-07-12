@@ -26,11 +26,10 @@ import java.util.Properties;
 
 //@Configuration
 // 读取配置文件的，通过Environment读取
-@PropertySource("classpath:application.properties")
+//@PropertySource("classpath:application.properties")
 // scan the package of the annotated configuration class for Spring Data repositories
-@EnableJpaRepositories(basePackages = "com.jrsoft.engine")
-// Enables Spring's annotation-driven transaction management
-@EnableTransactionManagement
+//@EnableJpaRepositories(basePackages = "com.jrsoft.engine")
+//@EnableTransactionManagement
 public class JpaConfig {
     @Autowired
     private Environment env;

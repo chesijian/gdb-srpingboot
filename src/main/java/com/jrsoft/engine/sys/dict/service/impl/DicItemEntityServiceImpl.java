@@ -17,18 +17,19 @@ import java.util.List;
 **/
 @Service
 @Transactional
-public class DicItemEntityServiceImpl extends BaseServiceImpl<DicItemEntity, DicItemEntityRepository> implements DicItemEntityService {
+public class DicItemEntityServiceImpl implements DicItemEntityService {
 
-    @Autowired
-    DicItemEntityRepository dicItemEntityRepository;
+    /*@Autowired
+    DicItemEntityRepository dicItemEntityRepository;*/
 
     @Override
     public List<DicItemEntity> findAllByParentId(String parentId) {
-        return dicItemEntityRepository.findAllByParentId(parentId);
+        return null;
+        //return dicItemEntityRepository.findAllByParentId(parentId);
     }
 
     @Override
     public void deleteAllByParentId(String parentId) {
-        dicItemEntityRepository.findAllByParentId(parentId);
+//        dicItemEntityRepository.findAllByParentId(parentId);
     }
 }

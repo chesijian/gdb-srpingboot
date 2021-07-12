@@ -10,7 +10,8 @@ import java.util.List;
   @Author author
   @Create 2019-05-15 20:20:54
 **/
-public interface DicItemEntityService extends BaseService<DicItemEntity> {
+//extends BaseService<DicItemEntity>
+public interface DicItemEntityService {
     List<DicItemEntity> findAllByParentId(String parentId);
     void deleteAllByParentId(String parentId);
 }

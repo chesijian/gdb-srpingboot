@@ -1,6 +1,7 @@
 package com.jrsoft.engine.sys.dict.service.impl;
 
 import com.jrsoft.engine.base.service.BaseServiceImpl;
+import com.jrsoft.engine.sys.dict.dao.DicEntityDao;
 import com.jrsoft.engine.sys.dict.domin.DicEntity;
 import com.jrsoft.engine.sys.dict.repository.DicEntityRepository;
 import com.jrsoft.engine.sys.dict.service.DicEntityService;
@@ -15,13 +16,21 @@ import org.springframework.transaction.annotation.Transactional;
 **/
 @Service
 @Transactional
-public class DicEntityServiceImpl extends BaseServiceImpl<DicEntity, DicEntityRepository> implements DicEntityService {
+public class DicEntityServiceImpl implements DicEntityService {
+
+    /*@Autowired
+    private DicEntityRepository dicEntityRepository;*/
 
     @Autowired
-    private DicEntityRepository dicEntityRepository;
+    private DicEntityDao dicEntityDao;
 
     @Override
     public DicEntity getByDicId(String dicId) {
-        return dicEntityRepository.getByDicId(dicId);
+        return dicEntityDao.getByDicId(dicId);
+    }
+
+    @Override
+    public void save(DicEntity entity) {
+
     }
 }

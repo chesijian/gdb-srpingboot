@@ -8,6 +8,8 @@ import com.jrsoft.engine.sys.dict.domin.DicEntity;
   @Author author
   @Create 2019-05-15 20:20:54
 **/
-public interface DicEntityService extends BaseService<DicEntity> {
+public interface DicEntityService{
     DicEntity getByDicId(String dicId);
+
+    void save(DicEntity entity);
 }

@@ -1,6 +1,7 @@
 package com.jrsoft.engine.service;
 
 import com.jrsoft.engine.base.domain.sys.DicTreeNode;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 

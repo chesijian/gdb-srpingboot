@@ -5,7 +5,10 @@ import com.jrsoft.engine.base.model.ReturnJson;
 import com.jrsoft.engine.base.web.BaseController;
 import com.jrsoft.engine.common.utils.CommonUtil;
 import com.jrsoft.engine.exception.EngineException;
+import com.jrsoft.engine.exception.EngineIllegalArgumentException;
 import com.jrsoft.engine.service.PfDicTreeService;
+import com.jrsoft.engine.sys.dict.domin.DicEntity;
+import com.jrsoft.engine.sys.dict.service.DicEntityService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiImplicitParam;
 import io.swagger.annotations.ApiImplicitParams;
@@ -27,10 +30,12 @@ import java.util.List;
 @RequestMapping(value = "/api_v1/sys/tree")
 public class SysDicController extends BaseController {
 
-	@Autowired
-	private PfDicTreeService sysTreeService;
+	/*@Autowired
+	private PfDicTreeService sysTreeService;*/
+    @Autowired
+	private DicEntityService dicEntityService;
 
-	@ApiOperation(value="查询系统树", notes="查询系统常量列表")
+	/*@ApiOperation(value="查询系统树", notes="查询系统常量列表")
 	@ApiImplicitParams({
 			@ApiImplicitParam(name = "parentId", value = "上级节点", required = true, dataType = "String"),
 			@ApiImplicitParam(name = "type", value = "类型，1表示系统数据字典树，2表示业务数据字典树,不传参表示查询所有",  dataType = "int"),
@@ -59,7 +64,7 @@ public class SysDicController extends BaseController {
 		}finally {
 			return returnJson;
 		}
-	}
+	}*/
 
 	/*@ApiOperation(value="查询单个树", notes="查询单个树")
 	@ApiImplicitParam(name = "id", value = "常量主键", required = true, dataType = "String",paramType = "path")
@@ -89,17 +94,17 @@ public class SysDicController extends BaseController {
 		}finally {
 			return returnJson;
 		}
-	}
+	}*/
 
 	@ApiOperation(value="创建树节点", notes="创建树节点")
 	@ApiImplicitParam(name = "entity", value = "树节点详细实体", required = true, dataType = "PfSysTreeEntity")
 	@PostMapping("")
-	public ReturnJson<PfSysTreeEntity> post(@RequestBody PfSysTreeEntity entity) {
+	public ReturnJson<DicEntity> post(@RequestBody DicEntity entity) {
 		ReturnJson returnJson = null;
 		try{
-			PfSysTreeEntity entity1 = sysTreeService.findByCode(entity.getCode());
+            DicEntity entity1 = dicEntityService.getByDicId(entity.getDicId());
 			if(entity1 == null){
-				sysTreeService.save(entity);
+                dicEntityService.save(entity);
 			}else{
 				throw new EngineIllegalArgumentException("duplicate code");
 			}
@@ -114,7 +119,7 @@ public class SysDicController extends BaseController {
 			return returnJson;
 		}
 	}
-
+    /**
 	@ApiOperation(value="修改树节点", notes="修改树节点")
 	@ApiImplicitParams({
 			@ApiImplicitParam(name = "id", value = "树节点主键", required = true, dataType = "String",paramType = "path"),
