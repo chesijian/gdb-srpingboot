@@ -12,7 +12,6 @@ import org.springframework.stereotype.Repository;
   @Create 2019-05-15 20:20:54
 **/
 //extends JpaRepository<DicEntity, String>, JpaSpecificationExecutor<DicEntity>
-@Repository
-public interface DicEntityRepository extends JpaRepository<DicEntity, String> {
+public interface DicEntityRepository extends JpaRepository<DicEntity, Integer> {
     DicEntity getByDicId(String dicId);
 }

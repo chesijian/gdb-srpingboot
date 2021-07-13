@@ -44,7 +44,7 @@ import java.io.PrintWriter;
  * @Date 2020/1/11 9:46
  * @Version 1.0
  */
-@Configuration
+//@Configuration
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired

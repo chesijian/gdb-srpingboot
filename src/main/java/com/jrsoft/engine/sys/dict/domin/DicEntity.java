@@ -14,14 +14,14 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table( name ="pf_dic" )
+@Table( name ="pf_dic_test" )
 public class DicEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "custom-uuid")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @ApiModelProperty(value="主键",name="id",hidden = true)
     @Column(name = "ID_", length = 36, nullable = false)
-    private String id;
+    private Integer id;
 
     @Column(name = "DIC_ID_")
     private String dicId;
