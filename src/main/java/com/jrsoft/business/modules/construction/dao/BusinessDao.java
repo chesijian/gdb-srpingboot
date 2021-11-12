@@ -16,7 +16,6 @@ import java.util.Map;
  * @author Blueeyedboy
  * @create 2018-10-13 15:33
  **/
-@MyBatisDao
 public interface BusinessDao {
 
 	List<Map<String, Object>> getPurchaseList(@Param("projUid") String projUid);

@@ -4,7 +4,6 @@
 package com.jrsoft.engine.interceptor;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import com.jrsoft.engine.base.interceptor.LogInterceptor;
 import com.jrsoft.engine.common.utils.CommonUtil;
 import com.jrsoft.engine.common.utils.SessionUtil;
 import com.jrsoft.engine.exception.EngineException;
@@ -46,12 +45,12 @@ public class BaseInterceptor implements HandlerInterceptor {
 		if(request.getMethod().toUpperCase().equals("OPTIONS")){
 			return true;
 		}
-        LogInterceptor.threadRequestLocal.set(request);
+        //LogInterceptor.threadRequestLocal.set(request);
 
         if (logger.isDebugEnabled()) {
 			logger.info("请求地址: {},isWeChat:{}", request.getRequestURI(), SessionUtil.isWechat());
 			long beginTime = System.currentTimeMillis();//1、开始时间
-            LogInterceptor.startTimeThreadLocal.set(beginTime);        //线程绑定变量（该数据只有当前请求的线程可见）
+            //LogInterceptor.startTimeThreadLocal.set(beginTime);        //线程绑定变量（该数据只有当前请求的线程可见）
             logger.debug("开始计时: {}  URI: {}", new SimpleDateFormat("hh:mm:ss.SSS")
                     .format(beginTime), request.getRequestURI());
         }
@@ -136,21 +135,21 @@ public class BaseInterceptor implements HandlerInterceptor {
     }
 
     public void clear(HttpServletRequest request){
-        LogInterceptor.TokenRedisThreadLocal.remove();
+        //LogInterceptor.TokenRedisThreadLocal.remove();
         // 打印JVM信息。
         if (logger.isDebugEnabled()) {
 
-            long beginTime = LogInterceptor.startTimeThreadLocal.get();//得到线程绑定的局部变量（开始时间）
+            //long beginTime = LogInterceptor.startTimeThreadLocal.get();//得到线程绑定的局部变量（开始时间）
             long endTime = System.currentTimeMillis();    //2、结束时间
             logger.debug("计时结束：{}  耗时：{}  URI: {}  最大内存: {}m  已分配内存: {}m  已分配内存中的剩余空间: {}m  最大可用内存: {}m",
                     new SimpleDateFormat("hh:mm:ss.SSS").format(endTime),
                     request.getRequestURI(), Runtime.getRuntime().maxMemory() / 1024 / 1024, Runtime.getRuntime().totalMemory() / 1024 / 1024, Runtime.getRuntime().freeMemory() / 1024 / 1024,
                     (Runtime.getRuntime().maxMemory() - Runtime.getRuntime().totalMemory() + Runtime.getRuntime().freeMemory()) / 1024 / 1024);
             //删除线程变量中的数据，防止内存泄漏
-            LogInterceptor.startTimeThreadLocal.remove();
+            //LogInterceptor.startTimeThreadLocal.remove();
         }
         //从线程中删除
-        LogInterceptor.threadRequestLocal.remove();
+        //LogInterceptor.threadRequestLocal.remove();
     }
 
 

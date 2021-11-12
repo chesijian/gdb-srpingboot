@@ -10,10 +10,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @SpringBootApplication
-@MapperScan(basePackages = {"com.jrsoft.business.modules","com.jrsoft.engine.dao","com.jrsoft.engine.db.mapping","com.jrsoft.engine.**.dao","com.jrsoft.engine.sys.dict.repository"})
-//@ComponentScan(basePackages = {"com.jrsoft.engine","com.jrsoft.component"})
-@EnableJpaRepositories(basePackages = {"com.jrsoft.engine.sys.dict.repository"})
-@EntityScan("com.jrsoft.engine.sys.dict.domin")
+@MapperScan(basePackages = {"com.jrsoft.engine.**.dao","com.jrsoft.business.modules.**.dao"})
+@EnableJpaRepositories(basePackages={"com.jrsoft.engine"})
+@EntityScan("com.jrsoft.engine.form.domain")
 @Configuration
 public class GdbApplication {
 

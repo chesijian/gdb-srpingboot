@@ -23,7 +23,7 @@ import java.util.List;
  * @Date 2021/6/12 11:50
  * @Version 1.0
  */
-@Component
+//@Component
 public class MyFilterInvocationSecurity implements FilterInvocationSecurityMetadataSource {
 
     AntPathMatcher antPathMatcher = new AntPathMatcher();

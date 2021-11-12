@@ -4,7 +4,6 @@ import com.jrsoft.business.common.domain.ExcelTitle;
 import com.jrsoft.business.modules.progress.model.Task;
 import com.jrsoft.business.modules.statistics.domain.SheetData;
 import com.jrsoft.engine.common.utils.CommonUtil;
-import com.jrsoft.engine.impl.util.AttachmentUtil;
 import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.hssf.util.CellRangeAddress;
 import org.apache.poi.hssf.util.HSSFColor;
@@ -342,7 +341,7 @@ public class ExportExcel {
 					numbers.add(imgsList.size());
 					for (int i = 0; i < imgsList.size(); i++) {
 						Map<String,Object> imgObj = imgsList.get(i);
-						String desPath = AttachmentUtil.UPLOAD_PATH + File.separator + imgObj.get("company") + File.separator + CommonUtil.getDateStr((Date)imgObj.get("createTime"));
+						String desPath = "";//AttachmentUtil.UPLOAD_PATH + File.separator + imgObj.get("company") + File.separator + CommonUtil.getDateStr((Date)imgObj.get("createTime"));
 						String fileName = imgObj.get("id")+"."+imgObj.get("suffix");
 						byteArrayOut = new ByteArrayOutputStream();
 						File desDir = new File(desPath + File.separator + fileName);

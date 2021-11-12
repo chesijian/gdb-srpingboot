@@ -20,7 +20,7 @@ import java.util.Collection;
  * @Date 2021/6/12 12:32
  * @Version 1.0
  */
-@Component
+//@Component
 public class MyAccessDecisionManager implements AccessDecisionManager {
 
     @Override

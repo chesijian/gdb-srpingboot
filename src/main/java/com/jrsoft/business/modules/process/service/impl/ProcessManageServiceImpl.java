@@ -1,11 +1,8 @@
 package com.jrsoft.business.modules.process.service.impl;
 
-import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,17 +17,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jrsoft.business.modules.process.dao.ProcessManageDao;
-import com.jrsoft.business.modules.process.model.Area;
 import com.jrsoft.business.modules.process.model.ProcessCheckout;
 import com.jrsoft.business.modules.process.model.ProcessCheckoutList;
 import com.jrsoft.business.modules.process.model.ProcessDet;
 import com.jrsoft.business.modules.process.model.ProcessTask;
 import com.jrsoft.business.modules.process.model.ProcessTaskList;
-import com.jrsoft.business.modules.process.repository.CheckoutRepository;
 import com.jrsoft.business.modules.process.service.ProcessDetService;
 import com.jrsoft.business.modules.process.service.ProcessManageServiceI;
-import com.jrsoft.business.modules.process.service.ProcessTaskManageServiceI;
-import com.jrsoft.engine.base.service.BaseServiceImpl;
 import com.jrsoft.engine.common.utils.CommonUtil;
 import com.jrsoft.engine.common.utils.SessionUtil;
 
@@ -45,11 +38,8 @@ public class ProcessManageServiceImpl implements ProcessManageServiceI{
 	@Autowired
 	private InspectService inspectService;
 	
-	@Autowired
-	private ProcessDetService processDetService;
-	
-	@Autowired
-	private ProcessTaskManageServiceI taskService;
+
+
 
 
 	@Override

@@ -39,7 +39,6 @@ import com.jrsoft.engine.base.model.ReturnPageJson;
 import com.jrsoft.engine.common.utils.CommonUtil;
 import com.jrsoft.engine.common.utils.RoleUtil;
 import com.jrsoft.engine.common.utils.SessionUtil;
-import com.jrsoft.engine.impl.util.AttachmentUtil;
 
 
 import io.swagger.annotations.Api;
@@ -993,7 +992,7 @@ public class InspectController {
 		Map<String, Object> paramMap = inspectService.getCheckRecordById(id,userUid);
 		paramMap.put("projName",projName);
 		paramMap.put("doctitle",paramMap.get("checkType")+"问题隐患通知单");
-		String tempPath = AttachmentUtil.TMP_PATH;
+		String tempPath = "";//AttachmentUtil.TMP_PATH;
 
 		String fileName = paramMap.get("checkType")+"问题隐患通知单.docx";
 
@@ -1151,7 +1150,6 @@ public class InspectController {
 	
 	/**
 	 * 获取企业库目录数据
-	 * @param request
 	 * @return
 	 */
 	@ApiOperation(value="获取企业库目录数据", notes="获取企业库目录数据")

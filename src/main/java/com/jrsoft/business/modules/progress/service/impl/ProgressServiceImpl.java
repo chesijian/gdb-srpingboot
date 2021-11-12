@@ -7,6 +7,7 @@ import java.util.*;
 import com.jrsoft.business.modules.progress.model.*;
 import com.jrsoft.business.modules.progress.query.ScheduleQuery;
 import com.jrsoft.engine.base.model.ReturnPageJson;
+import com.jrsoft.engine.common.utils.AttachmentUtil;
 import com.jrsoft.engine.exception.EngineException;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,7 +23,6 @@ import com.jrsoft.business.modules.progress.service.ProgressServiceI;
 import com.jrsoft.business.modules.progress.service.ScheduleServiceI;
 import com.jrsoft.engine.common.utils.CommonUtil;
 import com.jrsoft.engine.common.utils.SessionUtil;
-import com.jrsoft.engine.impl.util.AttachmentUtil;
 
 @Service
 @Transactional()
@@ -275,7 +275,7 @@ public class ProgressServiceImpl implements ProgressServiceI{
 
 	@Override
 	public void importExcelTasks(String fileId, String scheduleUid, String projUid){
-			String files =AttachmentUtil.TMP_PATH + File.separator + fileId; 
+			String files =AttachmentUtil.TMP_PATH + File.separator + fileId;
 			
 			//ExcelUtil excelUtil = new ExcelUtil();
 			Vector<Vector<String>> data = null;//excelUtil.getData(files,1);
@@ -369,7 +369,7 @@ public class ProgressServiceImpl implements ProgressServiceI{
 
 	@Override
 	public void importXmlTasks(String fileId, String scheduleUid, String projUid) {
-		String files =AttachmentUtil.TMP_PATH + File.separator + fileId; 
+		String files = AttachmentUtil.TMP_PATH + File.separator + fileId;
 		
 		File file = new File(AttachmentUtil.TMP_PATH + File.separator + fileId);
 		

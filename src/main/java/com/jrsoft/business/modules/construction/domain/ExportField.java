@@ -1,13 +1,13 @@
 package com.jrsoft.business.modules.construction.domain;
 
-import com.jrsoft.engine.impl.persistence.entity.BaseModelEntity;
+import com.jrsoft.engine.base.domain.BaseEntity;
 
 import java.util.List;
 
 /**
  * Created by chesijian on 2018/10/27.
  */
-public class ExportField extends BaseModelEntity {
+public class ExportField extends BaseEntity {
     Integer row;
     Integer line;
     Integer cols;

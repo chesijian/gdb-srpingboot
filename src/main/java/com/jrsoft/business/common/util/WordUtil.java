@@ -4,8 +4,8 @@ import java.io.*;
 import java.math.BigInteger;
 import java.util.*;
 
+import com.jrsoft.engine.common.utils.AttachmentUtil;
 import com.jrsoft.engine.common.utils.CommonUtil;
-import com.jrsoft.engine.impl.util.AttachmentUtil;
 import org.apache.poi.POIXMLDocument;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
